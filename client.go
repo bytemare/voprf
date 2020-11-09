@@ -19,8 +19,6 @@ type ppbEncoded struct {
 
 // PreprocessedBlind groups pre-computed values to be used as blinding by the CLient/Verifier.
 type PreprocessedBlind struct {
-	// todo : the blind here is not reused after preprocessing, and does not need to be retained
-	blind            group.Scalar
 	blindedGenerator group.Element
 	blindedPubKey    group.Element
 }

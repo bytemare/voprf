@@ -92,8 +92,6 @@ func (c Ciphersuite) Preprocess(serverPublicKey []byte) (*PreprocessedBlind, err
 	}
 
 	return &PreprocessedBlind{
-		// todo : the blind here is not reused after preprocessing, and does not need to be retained
-		blind:            r,
 		blindedGenerator: g.Base().Mult(r),
 		blindedPubKey:    pub.Mult(r),
 	}, nil
