@@ -3,7 +3,7 @@ package voprf
 import (
 	"fmt"
 
-	"github.com/bytemare/pake/cryptotools/hashtogroup/group"
+	"github.com/bytemare/cryptotools/hashtogroup/group"
 )
 
 // Server holds the (V)OPRF prover data.

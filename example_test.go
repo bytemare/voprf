@@ -9,7 +9,7 @@ package voprf
 import (
 	"fmt"
 
-	"github.com/bytemare/pake/cryptotools/encoding"
+	"github.com/bytemare/cryptotools/encoding"
 )
 
 func ExampleBaseMultiplicative() {

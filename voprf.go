@@ -1,10 +1,10 @@
 package voprf
 
 import (
-	"github.com/bytemare/pake/cryptotools/encoding"
-	"github.com/bytemare/pake/cryptotools/hash"
-	"github.com/bytemare/pake/cryptotools/hashtogroup"
-	"github.com/bytemare/pake/cryptotools/hashtogroup/group"
+	"github.com/bytemare/cryptotools/encoding"
+	"github.com/bytemare/cryptotools/hash"
+	"github.com/bytemare/cryptotools/hashtogroup"
+	"github.com/bytemare/cryptotools/hashtogroup/group"
 )
 
 // Mode distinguishes between the OPRF base mode and the Verifiable mode.
