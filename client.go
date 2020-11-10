@@ -53,9 +53,6 @@ func (c *Client) Blind(input []byte) []byte {
 		if c.preprocessedBLind == nil {
 			panic("preprocessBlind is nil while using additive blinding")
 		}
-		// todo: Draft error, the blind is described as a scalar, but blindedPubKey is a point/element.
-		//  Also, it's not necessary to actually keep it since it's already in the preprocessedBlind.
-		// c.token.blind = c.PreprocessedBlind.blindedPubKey
 		c.blindedElement = p.Add(c.preprocessedBLind.blindedGenerator)
 	}
 
