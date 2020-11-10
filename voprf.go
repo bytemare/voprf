@@ -54,6 +54,9 @@ const (
 
 	// protocol is a string explicitly stating the protocol.
 	protocol = "RFCXXXX"
+
+	// hash2groupDSTPrefix is the string prefix to use for HashToGroup operations
+	hash2groupDSTPrefix = protocol + "-HashToGroup-"
 )
 
 var (
@@ -61,10 +64,6 @@ var (
 	h2gToOprf = make(map[hashtogroup.Identifier]Ciphersuite)
 	oprfToh2g = make(map[Ciphersuite]hashtogroup.Identifier)
 )
-
-func contextString(mode Mode, id Ciphersuite) []byte {
-	return append(encoding.I2OSP1(uint(mode)), encoding.I2OSP2(uint(id))...)
-}
 
 func (c Ciphersuite) register(g hashtogroup.Identifier, h hash.Identifier) {
 	o := &oprf{
@@ -147,19 +146,23 @@ type oprf struct {
 	contextString []byte
 }
 
+func contextString(mode Mode, id Ciphersuite) []byte {
+	return append(encoding.I2OSP1(uint(mode)), encoding.I2OSP2(uint(id))...)
+}
+
+func (o *oprf) dst(prefix string) []byte {
+	return append([]byte(prefix), o.contextString...)
+}
+
 func (o *oprf) new(mode Mode, blinding Blinding) *oprf {
 	o.mode = mode
 	o.blinding = blinding
 	o.contextString = contextString(mode, o.id)
 	o.info = o.dst(protocol + "-")
-	// todo: The total length of the DST here is 11, less than the recommended H2C length
-	o.group = oprfToh2g[o.id].Get(o.info)
+	h2gDST := o.dst(hash2groupDSTPrefix)
+	o.group = oprfToh2g[o.id].Get(h2gDST)
 
 	return o
-}
-
-func (o *oprf) dst(prefix string) []byte {
-	return append([]byte(prefix), o.contextString...)
 }
 
 func (c Ciphersuite) client(mode Mode, blinding Blinding, blind *PreprocessedBlind) *Client {
