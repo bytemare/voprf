@@ -152,25 +152,25 @@ func (o *oprf) computeCompositeClient(encSeed, encCompositeDST []byte, blindToke
 }
 
 func (o *oprf) computeComposite(privKey group.Scalar, pubKey group.Element,
-	blindTokens, elements []group.Element) (m, z group.Element) {
+	blindedElements, evaluatedElements []group.Element) (m, z group.Element) {
 	seedDST := o.dst(dstSeedPrefix)
 	compositeDST := o.dst(dstCompositePrefix)
 	encCompositeDST := lengthPrefixEncode(compositeDST)
 
 	encPkS := lengthPrefixEncode(pubKey.Bytes())
 	// todo: draft is not clear here: how are we supposed to encode the list of elements here ?
-	encToken := lengthPrefixEncode(serializeBatch(blindTokens))
-	encElement := lengthPrefixEncode(serializeBatch(elements))
+	encToken := lengthPrefixEncode(serializeBatch(blindedElements))
+	encElement := lengthPrefixEncode(serializeBatch(evaluatedElements))
 	encSeedDST := lengthPrefixEncode(seedDST)
 	seed := o.hash.Hash(0, encPkS, encToken, encElement, encSeedDST)
 	encSeed := lengthPrefixEncode(seed)
 
 	// This means where calling from the server, and can optimize computation of Z, since Zi = sks * Mi
 	if privKey != nil {
-		return o.computeCompositeFast(encSeed, encCompositeDST, privKey, blindTokens)
+		return o.computeCompositeFast(encSeed, encCompositeDST, privKey, blindedElements)
 	}
 
-	return o.computeCompositeClient(encSeed, encCompositeDST, blindTokens, elements)
+	return o.computeCompositeClient(encSeed, encCompositeDST, blindedElements, evaluatedElements)
 }
 
 func (o *oprf) hashTranscript(input, element, info []byte) []byte {

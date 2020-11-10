@@ -5,13 +5,6 @@ import (
 	"github.com/bytemare/cryptotools/hashtogroup/group"
 )
 
-type token struct {
-	// data represents the unique serialization of an Element
-	data []byte
-	// blind represents the scalar used to blind the Element
-	blind group.Scalar
-}
-
 type ppbEncoded struct {
 	BlindedGenerator []byte `json:"g"`
 	BlindedPubKey    []byte `json:"p"`
@@ -35,10 +28,14 @@ func (p *PreprocessedBlind) Encode(enc encoding.Encoding) ([]byte, error) {
 
 // Client holds the client data and state during the OPRF.
 type Client struct {
-	serverPublicKey group.Element
-	blindToken      group.Element
-	issuedToken     group.Element
-	*token
+	// input is the original input to be blinded
+	input []byte
+
+	blind group.Scalar
+	blindedElement group.Element
+	unblindedElement group.Element
+	serverPublicKey  group.Element
+
 	evaluation        *Evaluation
 	preprocessedBLind *PreprocessedBlind
 	*oprf
@@ -47,15 +44,11 @@ type Client struct {
 // Blind obfuscates the input element with the use of an internal random scalar.
 func (c *Client) Blind(input []byte) []byte {
 	p := c.group.HashToGroup(input)
-
-	// Create a new token
-	c.token = &token{
-		data: input,
-	}
+	c.input = input
 
 	if c.blinding == Multiplicative {
-		c.token.blind = c.group.NewScalar().Random()
-		c.blindToken = p.Mult(c.token.blind)
+		c.blind = c.group.NewScalar().Random()
+		c.blindedElement = p.Mult(c.blind)
 	} else {
 		if c.preprocessedBLind == nil {
 			panic("preprocessBlind is nil while using additive blinding")
@@ -63,10 +56,10 @@ func (c *Client) Blind(input []byte) []byte {
 		// todo: Draft error, the blind is described as a scalar, but blindedPubKey is a point/element.
 		//  Also, it's not necessary to actually keep it since it's already in the preprocessedBlind.
 		// c.token.blind = c.PreprocessedBlind.blindedPubKey
-		c.blindToken = p.Add(c.preprocessedBLind.blindedGenerator)
+		c.blindedElement = p.Add(c.preprocessedBLind.blindedGenerator)
 	}
 
-	return c.blindToken.Bytes()
+	return c.blindedElement.Bytes()
 }
 
 // Start is a wrapper to Blind() and does strictly the same as Blind().
@@ -113,25 +106,25 @@ func (c *Client) Unblind() ([]byte, error) {
 	}
 
 	if c.blinding == Multiplicative {
-		c.issuedToken = c.evaluation.element.InvertMult(c.token.blind)
+		c.unblindedElement = c.evaluation.element.InvertMult(c.blind)
 	} else {
-		c.issuedToken = c.evaluation.element.Copy().Sub(c.preprocessedBLind.blindedPubKey)
+		c.unblindedElement = c.evaluation.element.Copy().Sub(c.preprocessedBLind.blindedPubKey)
 	}
 
-	return c.issuedToken.Bytes(), nil
+	return c.unblindedElement.Bytes(), nil
 }
 
 // Finalize hashes the original input data and the server's issued element and returns the resulting digest.
 func (c *Client) Finalize() []byte {
-	return c.hashTranscript(c.token.data, c.issuedToken.Bytes(), c.info)
+	return c.hashTranscript(c.input, c.unblindedElement.Bytes(), c.info)
 }
 
 func (c *Client) verifyProof() bool {
 	publicKey := c.serverPublicKey
-	tokenList := []group.Element{c.blindToken}
-	elementList := []group.Element{c.evaluation.element}
+	blindedElementList := []group.Element{c.blindedElement}
+	evaluatedElementList := []group.Element{c.evaluation.element}
 
-	a1, a2 := c.computeComposite(nil, publicKey, tokenList, elementList)
+	a1, a2 := c.computeComposite(nil, publicKey, blindedElementList, evaluatedElementList)
 
 	ab := c.group.Base().Mult(c.evaluation.proofS)
 	ap := publicKey.Mult(c.evaluation.proofC)
@@ -140,7 +133,7 @@ func (c *Client) verifyProof() bool {
 	bm := a1.Mult(c.evaluation.proofS)
 	bz := a2.Mult(c.evaluation.proofC)
 	a4 := bm.Add(bz)
-	c1 := c.proofScalar(publicKey, a1, a2, a3, a4)
+	expectedC := c.proofScalar(publicKey, a1, a2, a3, a4)
 
-	return ctEqual(c1.Bytes(), c.evaluation.proofC.Bytes())
+	return ctEqual(expectedC.Bytes(), c.evaluation.proofC.Bytes())
 }

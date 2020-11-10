@@ -20,8 +20,8 @@ func (s *Server) KeyGen() {
 }
 
 // Evaluate the input with the private key.
-func (s *Server) Evaluate(blinded []byte) (*Evaluation, error) {
-	b, err := s.group.NewElement().Decode(blinded)
+func (s *Server) Evaluate(blindedElement []byte) (*Evaluation, error) {
+	b, err := s.group.NewElement().Decode(blindedElement)
 	if err != nil {
 		return nil, fmt.Errorf("OPRF can't evaluate input : %w", err)
 	}
