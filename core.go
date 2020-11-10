@@ -127,25 +127,25 @@ func serializeBatch(elements []group.Element) []byte {
 	return out
 }
 
-func (o *oprf) computeCompositeFast(encSeed, encCompositeDST []byte, privKey group.Scalar, blindTokens []group.Element) (m, z group.Element) {
+func (o *oprf) computeCompositeFast(encSeed, encCompositeDST []byte, privKey group.Scalar, blindedElements []group.Element) (m, z group.Element) {
 	m = o.group.Identity()
 
-	for i := uint(0); i < uint(len(blindTokens)); i++ {
+	for i := uint(0); i < uint(len(blindedElements)); i++ {
 		di := o.group.HashToScalar(encSeed, encoding.I2OSP2(i), encCompositeDST)
-		m = m.Add(blindTokens[i].Mult(di))
+		m = m.Add(blindedElements[i].Mult(di))
 	}
 
 	return m, m.Mult(privKey)
 }
 
-func (o *oprf) computeCompositeClient(encSeed, encCompositeDST []byte, blindTokens, elements []group.Element) (m, z group.Element) {
+func (o *oprf) computeCompositeClient(encSeed, encCompositeDST []byte, blindedElements, evaluatedElements []group.Element) (m, z group.Element) {
 	m = o.group.Identity()
 	z = o.group.Identity()
 
-	for i := uint(0); i < uint(len(blindTokens)); i++ {
+	for i := uint(0); i < uint(len(blindedElements)); i++ {
 		di := o.group.HashToScalar(encSeed, encoding.I2OSP2(i), encCompositeDST)
-		m = m.Add(blindTokens[i].Mult(di))
-		z = z.Add(elements[i].Mult(di))
+		m = m.Add(blindedElements[i].Mult(di))
+		z = z.Add(evaluatedElements[i].Mult(di))
 	}
 
 	return m, z
