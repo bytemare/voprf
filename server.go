@@ -72,10 +72,10 @@ func (s *Server) evaluate(blinded group.Element) group.Element {
 }
 
 func (s *Server) generateProof(blinded, element group.Element) (c, sc group.Scalar) {
-	tokenList := []group.Element{blinded}
-	elementList := []group.Element{element}
+	blindedElements := []group.Element{blinded}
+	evaluatedElements := []group.Element{element}
 
-	a1, a2 := s.computeComposite(s.privateKey, s.publicKey, tokenList, elementList)
+	a1, a2 := s.computeComposite(s.privateKey, s.publicKey, blindedElements, evaluatedElements)
 
 	r := s.group.NewScalar().Random()
 	a3 := s.group.Base().Mult(r)
