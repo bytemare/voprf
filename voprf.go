@@ -55,7 +55,7 @@ const (
 	// protocol is a string explicitly stating the protocol.
 	protocol = "RFCXXXX"
 
-	// hash2groupDSTPrefix is the string prefix to use for HashToGroup operations
+	// hash2groupDSTPrefix is the string prefix to use for HashToGroup operations.
 	hash2groupDSTPrefix = protocol + "-HashToGroup-"
 )
 

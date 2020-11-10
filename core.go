@@ -100,38 +100,29 @@ func decodeEval(g group.Group, in []byte, enc encoding.Encoding) (*Evaluation, e
 	}, nil
 }
 
-// todo: the draft doesn't really describe what this is, and does not use it
-// type batchedEvaluation struct {
-// 	Elements []group.Element
-// 	Proof    group.Scalar
-// }
+func encodeElement(e group.Element) (encLen, encE []byte) {
+	enc := e.Bytes()
+	length := uint(len(enc))
 
-func serializeBatch(elements []group.Element) []byte {
-	if len(elements) == 0 {
-		return []byte{}
-	}
-
-	e0 := elements[0].Bytes()
-
-	if len(elements) == 1 {
-		return e0
-	}
-
-	out := make([]byte, 0, len(elements)*len(e0))
-	copy(out, e0)
-
-	for _, e := range elements[1:] {
-		out = append(out, e.Bytes()...)
-	}
-
-	return out
+	return encoding.I2OSP2(length), enc
 }
 
-func (o *oprf) computeCompositeFast(encSeed, encCompositeDST []byte, privKey group.Scalar, blindedElements []group.Element) (m, z group.Element) {
+func (o *oprf) ccScalar(encSeed, encCompositeDST []byte, index uint, blindedElement, evaluatedElement group.Element) group.Scalar {
+	bLen, b := encodeElement(blindedElement)
+	eLen, e := encodeElement(evaluatedElement)
+
+	return o.group.HashToScalar(encSeed, encoding.I2OSP2(index),
+		bLen, b,
+		eLen, e,
+		encCompositeDST)
+}
+
+func (o *oprf) computeCompositeFast(encSeed, encCompositeDST []byte, privKey group.Scalar,
+	blindedElements, evaluatedElements []group.Element) (m, z group.Element) {
 	m = o.group.Identity()
 
 	for i := uint(0); i < uint(len(blindedElements)); i++ {
-		di := o.group.HashToScalar(encSeed, encoding.I2OSP2(i), encCompositeDST)
+		di := o.ccScalar(encSeed, encCompositeDST, i, blindedElements[i], evaluatedElements[i])
 		m = m.Add(blindedElements[i].Mult(di))
 	}
 
@@ -143,7 +134,7 @@ func (o *oprf) computeCompositeClient(encSeed, encCompositeDST []byte, blindedEl
 	z = o.group.Identity()
 
 	for i := uint(0); i < uint(len(blindedElements)); i++ {
-		di := o.group.HashToScalar(encSeed, encoding.I2OSP2(i), encCompositeDST)
+		di := o.ccScalar(encSeed, encCompositeDST, i, blindedElements[i], evaluatedElements[i])
 		m = m.Add(blindedElements[i].Mult(di))
 		z = z.Add(evaluatedElements[i].Mult(di))
 	}
@@ -153,21 +144,20 @@ func (o *oprf) computeCompositeClient(encSeed, encCompositeDST []byte, blindedEl
 
 func (o *oprf) computeComposite(privKey group.Scalar, pubKey group.Element,
 	blindedElements, evaluatedElements []group.Element) (m, z group.Element) {
+	// DST
 	seedDST := o.dst(dstSeedPrefix)
+	encSeedDST := lengthPrefixEncode(seedDST)
 	compositeDST := o.dst(dstCompositePrefix)
 	encCompositeDST := lengthPrefixEncode(compositeDST)
 
+	// build seed
 	encPkS := lengthPrefixEncode(pubKey.Bytes())
-	// todo: draft is not clear here: how are we supposed to encode the list of elements here ?
-	encToken := lengthPrefixEncode(serializeBatch(blindedElements))
-	encElement := lengthPrefixEncode(serializeBatch(evaluatedElements))
-	encSeedDST := lengthPrefixEncode(seedDST)
-	seed := o.hash.Hash(0, encPkS, encToken, encElement, encSeedDST)
+	seed := o.hash.Hash(0, encPkS, encSeedDST)
 	encSeed := lengthPrefixEncode(seed)
 
 	// This means where calling from the server, and can optimize computation of Z, since Zi = sks * Mi
 	if privKey != nil {
-		return o.computeCompositeFast(encSeed, encCompositeDST, privKey, blindedElements)
+		return o.computeCompositeFast(encSeed, encCompositeDST, privKey, blindedElements, evaluatedElements)
 	}
 
 	return o.computeCompositeClient(encSeed, encCompositeDST, blindedElements, evaluatedElements)

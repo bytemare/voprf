@@ -26,7 +26,7 @@ func ExampleBaseMultiplicative() {
 	client := RistrettoSha512.Client()
 
 	// The client blinds the initial input, and sends this to the server.
-	blinded := client.Blind(input)
+	blinded := client.Start(input)
 
 	// The server evaluates the blinded input, and returns an Evaluation.
 	// This evaluation also contains proofs if Verifiable mode is requested.
@@ -92,7 +92,7 @@ func ExampleBaseAdditive() {
 	client := RistrettoSha512.ClientAdditive(decoded)
 
 	// The client blinds the initial input, and sends this to the server.
-	blinded := client.Blind(input)
+	blinded := client.Start(input)
 
 	// The server evaluates the blinded input, and returns an Evaluation.
 	// This evaluation also contains proofs if Verifiable mode is requested.
@@ -142,7 +142,7 @@ func ExampleVerifiableMultiplicative() {
 	}
 
 	// The client blinds the initial input, and sends this to the server.
-	blinded := client.Blind(input)
+	blinded := client.Start(input)
 
 	// The server evaluates the blinded input, and returns an Evaluation.
 	// This evaluation also contains proofs if Verifiable mode is requested.
@@ -211,7 +211,7 @@ func ExampleVerifiableAdditive() {
 	}
 
 	// The client blinds the initial input, and sends this to the server.
-	blinded := client.Blind(input)
+	blinded := client.Start(input)
 
 	// The server evaluates the blinded input, and returns an Evaluation.
 	// This evaluation also contains proofs if Verifiable mode is requested.

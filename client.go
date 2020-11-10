@@ -31,8 +31,8 @@ type Client struct {
 	// input is the original input to be blinded
 	input []byte
 
-	blind group.Scalar
-	blindedElement group.Element
+	blind            group.Scalar
+	blindedElement   group.Element
 	unblindedElement group.Element
 	serverPublicKey  group.Element
 
