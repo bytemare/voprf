@@ -61,11 +61,11 @@ const (
 
 var (
 	suites    = make([]*oprf, maxID)
-	h2gToOprf = make(map[hashtogroup.Identifier]Ciphersuite)
-	oprfToh2g = make(map[Ciphersuite]hashtogroup.Identifier)
+	h2gToOprf = make(map[hashtogroup.Ciphersuite]Ciphersuite)
+	oprfToh2g = make(map[Ciphersuite]hashtogroup.Ciphersuite)
 )
 
-func (c Ciphersuite) register(g hashtogroup.Identifier, h hash.Identifier) {
+func (c Ciphersuite) register(g hashtogroup.Ciphersuite, h hash.Identifier) {
 	o := &oprf{
 		id:   c,
 		hash: h.Get(),
@@ -127,7 +127,7 @@ func (c Ciphersuite) DecodePreprocessedBlind(encoded []byte, enc encoding.Encodi
 }
 
 // FromHashToGroup returns a VOPRF Ciphersuite identifier given a HashToGroup/Hash-to-Curve Identifier.
-func FromHashToGroup(id hashtogroup.Identifier) (Ciphersuite, error) {
+func FromHashToGroup(id hashtogroup.Ciphersuite) (Ciphersuite, error) {
 	c, ok := h2gToOprf[id]
 	if !ok {
 		return 0, errParamInvalidID
