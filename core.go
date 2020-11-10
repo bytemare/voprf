@@ -9,11 +9,10 @@ import (
 )
 
 const (
-	// todo: inconsistencies in using lower-case or upper-case first letter
-	dstChallengePrefix = protocol + "-challenge-"
-	dstCompositePrefix = protocol + "-composite-"
+	dstChallengePrefix = protocol + "-Challenge-"
+	dstCompositePrefix = protocol + "-Composite-"
 	dstFinalizePrefix  = protocol + "-Finalize-"
-	dstSeedPrefix      = protocol + "-seed-"
+	dstSeedPrefix      = protocol + "-Seed-"
 )
 
 func lengthPrefixEncode(input []byte) []byte {
