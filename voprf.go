@@ -41,11 +41,11 @@ const (
 	// Decaf448Sha512 is the OPRF ciphersuite of the Decaf448 group and SHA2-512.
 	Decaf448Sha512
 
-	// P256Sha512 is the OPRF ciphersuite of the NIST P-256 group and SHA2-512.
-	P256Sha512
+	// P256Sha256 is the OPRF ciphersuite of the NIST P-256 group and SHA2-256.
+	P256Sha256
 
-	// P384Sha384 is the OPRF ciphersuite of the NIST P-384 group and SHA2-384.
-	P384Sha384
+	// P384Sha512 is the OPRF ciphersuite of the NIST P-384 group and SHA2-512.
+	P384Sha512
 
 	// P521Sha512 is the OPRF ciphersuite of the NIST P-512 group and SHA2-512.
 	P521Sha512
@@ -281,7 +281,7 @@ func (c Ciphersuite) VerifiableServer(privateKey []byte) (*Server, error) {
 func init() {
 	RistrettoSha512.register(hashtogroup.Ristretto255Sha512, hash.SHA512)
 	Decaf448Sha512.register(hashtogroup.Curve448Sha512, hash.SHA512)
-	P256Sha512.register(hashtogroup.P256Sha256, hash.SHA256)
-	P384Sha384.register(hashtogroup.P384Sha512, hash.SHA512)
+	P256Sha256.register(hashtogroup.P256Sha256, hash.SHA256)
+	P384Sha512.register(hashtogroup.P384Sha512, hash.SHA512)
 	P521Sha512.register(hashtogroup.P521Sha512, hash.SHA512)
 }
