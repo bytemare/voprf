@@ -13,6 +13,25 @@ type Server struct {
 	*oprf
 }
 
+func (s *Server) evaluate(blinded group.Element) group.Element {
+	return blinded.Mult(s.privateKey)
+}
+
+func (s *Server) generateProof(blindedElements, evaluatedElements []group.Element) (c, sc group.Scalar) {
+	a0, a1 := s.computeComposites(s.privateKey, s.publicKey, blindedElements, evaluatedElements)
+
+	r := s.group.NewScalar().Random()
+	a2 := s.group.Base().Mult(r)
+	a3 := a1.Mult(r)
+
+	c = s.proofScalar(s.publicKey, a0, a1, a2, a3)
+	sc = c.Copy()
+	m := sc.Mult(s.privateKey)
+	sc = r.Sub(m)
+
+	return c, sc
+}
+
 // KeyGen generates and sets a new private/public key pair.
 func (s *Server) KeyGen() {
 	s.privateKey = s.group.NewScalar().Random()
@@ -21,24 +40,57 @@ func (s *Server) KeyGen() {
 
 // Evaluate the input with the private key.
 func (s *Server) Evaluate(blindedElement []byte) (*Evaluation, error) {
+	ev := &evaluation{}
+	ev.elements = make([]group.Element, 1)
+
 	b, err := s.group.NewElement().Decode(blindedElement)
 	if err != nil {
 		return nil, fmt.Errorf("OPRF can't evaluate input : %w", err)
 	}
 
-	ev := &Evaluation{
-		element: s.evaluate(b),
-		proofC:  nil,
-		proofS:  nil,
-	}
+	ev.elements[0] = s.evaluate(b)
 
 	if s.mode == Verifiable {
-		c, s := s.generateProof(b, ev.element)
+		c, s := s.generateProof([]group.Element{b}, ev.elements)
 		ev.proofC = c
 		ev.proofS = s
 	}
 
-	return ev, nil
+	return ev.serialize(), nil
+}
+
+// EvaluateBatch evaluates the input batch of blindedElements and returns a pointer to the Evaluation. If the server
+// was set to be un Verifiable mode, the proof will be included in the Evaluation.
+func (s *Server) EvaluateBatch(blindedElements [][]byte) (*Evaluation, error) {
+	ev := &evaluation{}
+	ev.elements = make([]group.Element, len(blindedElements))
+
+	var blinded []group.Element
+
+	if s.mode == Verifiable {
+		blinded = make([]group.Element, len(blindedElements))
+	}
+
+	for i, b := range blindedElements {
+		b, err := s.group.NewElement().Decode(b)
+		if err != nil {
+			return nil, fmt.Errorf("OPRF can't evaluate input : %w", err)
+		}
+
+		if s.mode == Verifiable {
+			blinded[i] = b
+		}
+
+		ev.elements[i] = s.evaluate(b)
+	}
+
+	if s.mode == Verifiable {
+		c, s := s.generateProof(blinded, ev.elements)
+		ev.proofC = c
+		ev.proofS = s
+	}
+
+	return ev.serialize(), nil
 }
 
 // FullEvaluate reproduces the full PRF but without the blinding operations, using the client's input.
@@ -50,41 +102,32 @@ func (s *Server) FullEvaluate(input, info []byte) []byte {
 	return s.hashTranscript(input, t.Bytes(), info)
 }
 
-// VerifyFinalize takes the client input (the un-blinded element) and the client's Finalize() output,
+// VerifyFinalize takes the client input (the un-blinded element) and the client's finalize() output,
 // and returns whether it can match the client's output.
 func (s *Server) VerifyFinalize(input, output, info []byte) bool {
 	digest := s.FullEvaluate(input, info)
 	return ctEqual(digest, output)
 }
 
-// PrivateKey returns the server's private key.
+// VerifyFinalizeBatch takes the batch of client input (the un-blinded elements) and the client's finalize() outputs,
+// and returns whether it can match the client's outputs.
+func (s *Server) VerifyFinalizeBatch(input, output [][]byte, info []byte) bool {
+	res := true
+
+	for i, in := range input {
+		digest := s.FullEvaluate(in, info)
+		res = res && ctEqual(digest, output[i])
+	}
+
+	return res
+}
+
+// PrivateKey returns the server's serialized private key.
 func (s *Server) PrivateKey() []byte {
 	return s.privateKey.Bytes()
 }
 
-// PublicKey returns the server's public key.
+// PublicKey returns the server's serialized public key.
 func (s *Server) PublicKey() []byte {
 	return s.publicKey.Bytes()
-}
-
-func (s *Server) evaluate(blinded group.Element) group.Element {
-	return blinded.Mult(s.privateKey)
-}
-
-func (s *Server) generateProof(blinded, element group.Element) (c, sc group.Scalar) {
-	blindedElements := []group.Element{blinded}
-	evaluatedElements := []group.Element{element}
-
-	a1, a2 := s.computeComposite(s.privateKey, s.publicKey, blindedElements, evaluatedElements)
-
-	r := s.group.NewScalar().Random()
-	a3 := s.group.Base().Mult(r)
-	a4 := a1.Mult(r)
-
-	c = s.proofScalar(s.publicKey, a1, a2, a3, a4)
-	sc = c.Copy()
-	m := sc.Mult(s.privateKey)
-	sc = r.Sub(m)
-
-	return c, sc
 }

@@ -3,16 +3,20 @@ package voprf
 import "errors"
 
 var (
-	errParamNilPPB      = errors.New("can't set up ClientAdditive with nil PreprocessedBlind")
-	errParamNilPubAdd   = errors.New("can't set up ClientAdditive with nil server public key")
-	errParamNilPubVerif = errors.New("can't set up VerifiableClient with nil server public key")
-	errParamInvalidID   = errors.New("invalid Ciphersuite identifier")
-	errParamNoEncoding  = errors.New("encoding not set")
+	errParamPPNilBlind  = errors.New("can't PreprocessWithKey() with nil blind")
+	errParamPPNilPubKey = errors.New("can't preprocess with nil server public key")
+	errPPNilGenerator   = errors.New("preprocessed generator is nil")
+	errPPNilPubKey      = errors.New("preprocessed public key is nil")
 
-	errInternNilPPBArgs         = errors.New("preprocessBlind lacks content")
-	errInternalDecodePPB        = errors.New("internal : could not decode/cast to ppbEncoded struct")
-	errInternalDecodeEval       = errors.New("internal : could not decode/cast to eval struct")
-	errInternalNilPubVerifiable = errors.New("serverPublicKey is nil while in Verifiable mode")
+	errParamNilPPB        = errors.New("can't set up ClientAdditive with nil ppb")
+	errParamInvalidID     = errors.New("invalid Ciphersuite identifier")
+	errParamNoEncoding    = errors.New("encoding not set")
+	errParamFinalizeLen   = errors.New("invalid number of elements in evaluation")
+	errParamInputEqualLen = errors.New("input lengths are not equal")
 
-	errProofFailed = errors.New("proof failes")
+	errInternNilPPBArgs   = errors.New("preprocessBlind lacks content")
+	errInternalDecodePPB  = errors.New("internal : could not decode/cast to PreprocessedBlind struct")
+	errInternalDecodeEval = errors.New("internal : could not decode/cast to Evaluation struct")
+
+	errProofFailed = errors.New("proof fails")
 )

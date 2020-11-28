@@ -11,10 +11,10 @@ import (
 type Mode byte
 
 const (
-	// Base sets the OPRF non-verifiable, base mode.
+	// Base identifies the OPRF non-verifiable, base mode.
 	Base Mode = iota
 
-	// Verifiable sets the OPRF verifiable mode.
+	// Verifiable identifies the OPRF verifiable mode.
 	Verifiable
 )
 
@@ -31,31 +31,31 @@ const (
 	Additive
 )
 
-// Ciphersuite identifies the OPRF compatible ciphersuite to be used.
+// Ciphersuite identifies the OPRF compatible cipher suite to be used.
 type Ciphersuite byte
 
 const (
-	// RistrettoSha512 is the OPRF ciphersuite of the Ristretto255 group and SHA-512.
+	// RistrettoSha512 is the OPRF cipher suite of the Ristretto255 group and SHA-512.
 	RistrettoSha512 Ciphersuite = iota + 1
 
-	// Decaf448Sha512 is the OPRF ciphersuite of the Decaf448 group and SHA2-512.
+	// Decaf448Sha512 is the OPRF cipher suite of the Decaf448 group and SHA2-512.
 	Decaf448Sha512
 
-	// P256Sha256 is the OPRF ciphersuite of the NIST P-256 group and SHA2-256.
+	// P256Sha256 is the OPRF cipher suite of the NIST P-256 group and SHA2-256.
 	P256Sha256
 
-	// P384Sha512 is the OPRF ciphersuite of the NIST P-384 group and SHA2-512.
+	// P384Sha512 is the OPRF cipher suite of the NIST P-384 group and SHA2-512.
 	P384Sha512
 
-	// P521Sha512 is the OPRF ciphersuite of the NIST P-512 group and SHA2-512.
+	// P521Sha512 is the OPRF cipher suite of the NIST P-512 group and SHA2-512.
 	P521Sha512
 
 	maxID
 
-	// protocol is a string explicitly stating the protocol.
-	protocol = "RFCXXXX"
+	// protocol is a string explicitly stating the protocol name.
+	protocol = "VOPRF06"
 
-	// hash2groupDSTPrefix is the string prefix to use for HashToGroup operations.
+	// hash2groupDSTPrefix is the DST prefix to use for HashToGroup operations.
 	hash2groupDSTPrefix = protocol + "-HashToGroup-"
 )
 
@@ -76,54 +76,50 @@ func (c Ciphersuite) register(g hashtogroup.Ciphersuite, h hash.Identifier) {
 	oprfToh2g[c] = g
 }
 
+func preprocess(g group.Group, blind group.Scalar, pubKey []byte) (*PreprocessedBlind, error) {
+	pub, err := g.NewElement().Decode(pubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &ppb{
+		blindedGenerator: g.Base().Mult(blind),
+		blindedPubKey:    pub.Mult(blind),
+	}
+
+	return p.serialize(), nil
+}
+
 // Preprocess generates a new random blind in the given group, and returns blinding values given the server's public key.
 func (c Ciphersuite) Preprocess(serverPublicKey []byte) (*PreprocessedBlind, error) {
 	if serverPublicKey == nil {
-		panic("can't preprocess with nil server public key")
+		return nil, errParamPPNilPubKey
 	}
 
-	g := c.Client().group
+	g := suites[c].new(Base, Additive).group
 	r := g.NewScalar().Random()
 
-	pub, err := g.NewElement().Decode(serverPublicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return &PreprocessedBlind{
-		blindedGenerator: g.Base().Mult(r),
-		blindedPubKey:    pub.Mult(r),
-	}, nil
+	return preprocess(g, r, serverPublicKey)
 }
 
-// DecodePreprocessedBlind attempts to decode the encoded PreprocessedBlind and restore it given the encoding.
-func (c Ciphersuite) DecodePreprocessedBlind(encoded []byte, enc encoding.Encoding) (*PreprocessedBlind, error) {
-	g := oprfToh2g[c].Get([]byte("DecodePreprocessedBlind"))
+// PreprocessWithBlind returns blinding values in the group given the blind and server's public key.
+func (c Ciphersuite) PreprocessWithBlind(blind, serverPublicKey []byte) (*PreprocessedBlind, error) {
+	if blind == nil {
+		return nil, errParamPPNilBlind
+	}
 
-	e, err := enc.Decode(encoded, &ppbEncoded{})
+	if serverPublicKey == nil {
+		return nil, errParamPPNilPubKey
+	}
+
+	g := suites[c].new(Base, Additive).group
+
+	s, err := g.NewScalar().Decode(blind)
 	if err != nil {
 		return nil, err
 	}
 
-	pp, ok := e.(*ppbEncoded)
-	if !ok {
-		return nil, errInternalDecodePPB
-	}
-
-	gen, err := g.NewElement().Decode(pp.BlindedGenerator)
-	if err != nil {
-		return nil, err
-	}
-
-	pub, err := g.NewElement().Decode(pp.BlindedPubKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return &PreprocessedBlind{
-		blindedGenerator: gen,
-		blindedPubKey:    pub,
-	}, nil
+	return preprocess(g, s, serverPublicKey)
 }
 
 // FromHashToGroup returns a VOPRF Ciphersuite identifier given a HashToGroup/Hash-to-Curve Identifier.
@@ -142,7 +138,6 @@ type oprf struct {
 	blinding      Blinding
 	group         group.Group
 	hash          *hash.Hash
-	info          []byte
 	contextString []byte
 }
 
@@ -158,7 +153,6 @@ func (o *oprf) new(mode Mode, blinding Blinding) *oprf {
 	o.mode = mode
 	o.blinding = blinding
 	o.contextString = contextString(mode, o.id)
-	o.info = o.dst(protocol + "-")
 	h2gDST := o.dst(hash2groupDSTPrefix)
 	o.group = oprfToh2g[o.id].Get(h2gDST)
 
@@ -166,15 +160,21 @@ func (o *oprf) new(mode Mode, blinding Blinding) *oprf {
 }
 
 func (c Ciphersuite) client(mode Mode, blinding Blinding, blind *PreprocessedBlind) *Client {
-	if blind != nil {
-		if blind.blindedGenerator == nil || blind.blindedPubKey == nil {
-			panic(errInternNilPPBArgs)
-		}
+	client := &Client{
+		oprf: suites[c].new(mode, blinding),
 	}
 
-	client := &Client{
-		oprf:              suites[c].new(mode, blinding),
-		preprocessedBLind: blind,
+	if blind != nil {
+		if len(blind.BlindedGenerator) == 0 || len(blind.BlindedPubKey) == 0 {
+			panic(errInternNilPPBArgs)
+		}
+
+		ppb, err := blind.deserialize(client.group)
+		if err != nil {
+			panic(err)
+		}
+
+		client.preprocessedBLind = ppb
 	}
 
 	return client
@@ -192,50 +192,33 @@ func (c *Client) setServerPubkey(serverPublicKey []byte) error {
 }
 
 // Client returns an OPRF client for multiplicative blinding.
-func (c Ciphersuite) Client() *Client {
-	return c.client(Base, Multiplicative, nil)
+func (c Ciphersuite) Client(serverPublicKey []byte) (*Client, error) {
+	// No public key means we use the base mode
+	if serverPublicKey == nil {
+		return c.client(Base, Multiplicative, nil), nil
+	}
+	// A non-nil public key indicates using the verifiable mode
+	client := c.client(Verifiable, Multiplicative, nil)
+	if err := client.setServerPubkey(serverPublicKey); err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
 
 // ClientAdditive returns an OPRF client for additive blinding.
 // The blind argument should be generated with the Preprocess function.
-func (c Ciphersuite) ClientAdditive(blind *PreprocessedBlind) *Client {
+func (c Ciphersuite) ClientAdditive(serverPublicKey []byte, blind *PreprocessedBlind) (*Client, error) {
 	if blind == nil {
 		panic(errParamNilPPB)
 	}
 
-	return c.client(Base, Additive, blind)
-}
-
-// VerifiableClient returns a VOPRF client/verifier with multiplicative blinding.
-// The serverPublicKey serves to verify the server's proof.
-func (c Ciphersuite) VerifiableClient(serverPublicKey []byte) (*Client, error) {
+	// No public key means we use the base mode
 	if serverPublicKey == nil {
-		panic(errParamNilPubVerif)
+		return c.client(Base, Additive, blind), nil
 	}
-
-	client := c.client(Verifiable, Multiplicative, nil)
-
-	if err := client.setServerPubkey(serverPublicKey); err != nil {
-		return nil, err
-	}
-
-	return client, nil
-}
-
-// VerifiableClientAdditive returns a VOPRF client/verifier with additive blinding.
-// The blind argument should be generated with the Preprocess function.
-// The encoded serverPublicKey serves to verify the server's proof.
-func (c Ciphersuite) VerifiableClientAdditive(serverPublicKey []byte, blind *PreprocessedBlind) (*Client, error) {
-	if serverPublicKey == nil {
-		panic(errParamNilPubAdd)
-	}
-
-	if blind == nil {
-		panic(errParamNilPPB)
-	}
-
+	// A non-nil public key indicates using the verifiable mode
 	client := c.client(Verifiable, Additive, blind)
-
 	if err := client.setServerPubkey(serverPublicKey); err != nil {
 		return nil, err
 	}
@@ -243,11 +226,9 @@ func (c Ciphersuite) VerifiableClientAdditive(serverPublicKey []byte, blind *Pre
 	return client, nil
 }
 
-// Server returns an OPRF server instantiated with the given encoded private key.
-// If privateKey is nil, a new private/public key pair is created.
-func (c Ciphersuite) Server(privateKey []byte) (*Server, error) {
+func (c Ciphersuite) server(mode Mode, privateKey []byte) (*Server, error) {
 	s := &Server{
-		oprf: suites[c].new(Base, Multiplicative),
+		oprf: suites[c].new(mode, Multiplicative),
 	}
 
 	if privateKey != nil {
@@ -265,10 +246,16 @@ func (c Ciphersuite) Server(privateKey []byte) (*Server, error) {
 	return s, nil
 }
 
+// Server returns an OPRF server instantiated with the given encoded private key.
+// If privateKey is nil, a new private/public key pair is created.
+func (c Ciphersuite) Server(privateKey []byte) (*Server, error) {
+	return c.server(Base, privateKey)
+}
+
 // VerifiableServer returns a VOPRF server/prover instantiated with the given encoded private key.
 // If privateKey is nil, a new private/public key pair is created.
 func (c Ciphersuite) VerifiableServer(privateKey []byte) (*Server, error) {
-	s, err := c.Server(privateKey)
+	s, err := c.server(Verifiable, privateKey)
 	if err != nil {
 		return nil, err
 	}
