@@ -29,15 +29,15 @@ This has the advantage of being faster than variable-based multiplication. Note 
 | Ciphersuite  	| Identifier  	| Bit security | Implementation |
 |---------------|:-------------:|:------------:|:--------------:|
 |   RistrettoSha512	|   0x0001	|   128	| github.com/gtank/ristretto255 |
-|   Curve448	|   0x0002	|   224	| github.com/armfazh/h2c-go-ref |
-|   P256Sha512	|   0x0003	|   128	| 
-|   P384Sha384	|   0x0004	|   192	| 
-|   P521Sha512	|   0x0005	|   256	| 
+|   ~~Decaf448~~	|   0x0002	|   224	| missing |
+|   P256Sha512	|   0x0003	|   128	| github.com/armfazh/h2c-go-ref |
+|   P384Sha384	|   0x0004	|   192	| github.com/armfazh/h2c-go-ref |
+|   P521Sha512	|   0x0005	|   256	| github.com/armfazh/h2c-go-ref |
 
 ## Usage
 
 Between Base and Verifiable mode, or multiplicative and additive blinding, only the setup of the client and server change in usage.
-The rest of the execution remains strictly the change. 
+The rest of the execution remains strictly the same. 
 
 ### Generate a server key pair
 
@@ -88,12 +88,12 @@ vServer := Ristretto255.VerifiableServer(privateKeyBytes)
 
 ### Client
 
-The client can be instantiated in one of 4 ways, depending on the setup
+The client can be instantiated in one of 4 ways using the  `Client()` and `ClientAdditive()` functions, depending on the setup
 
 |   | Multiplicative | Additive |
 |:-------------:|:-------------:|:-------------:|
-| Base | Client() | ClientAdditive(ppb) |
-| Verifiable | VerifiableClient(pk)| VerifiableClientAdditive(pk, ppb)|
+| Base | Client(nil) | ClientAdditive(nil, ppb) |
+| Verifiable | Client(pk)| ClientAdditive(pk, ppb)|
 
 where ```pk``` is the server's public key, and ```ppb``` the *pre-processed blind*.
 
@@ -104,7 +104,7 @@ This can be of advantage if the client has the ability (i.e. long-term memory) t
 
 #### Preprocessing values for additive blinding
 
-The client executes this once, when set up out of any exchange
+The client executes this once, when set up before protocol execution
 ```go
 import "github.com/bytemare/cryptotools/encoding"
 
@@ -128,21 +128,21 @@ import "github.com/bytemare/cryptotools/encoding"
 enc := encoding.JSON
 
 // Upon retrieval, decode/restore it.
-decodedPPB, err := RistrettoSha512.DecodePreprocessedBlind(encodedPPB, enc)
+decodedPPB, err := DecodePreprocessedBlind(encodedPPB, enc)
 if err != nil {
 	panic(err)
 }
 
 // Instantiate a new client with the preprocessed values
-client := RistrettoSha512.ClientAdditive(decoded)
+client := RistrettoSha512.ClientAdditive(nil, decoded)
 ```
 
 ## Use case
 
-This OPRF implementation is used in projects like
+The following projects use this OPRF implementation
 
-* OPAQUE (link will be added later)
-* strong-AuCPace (link will be added later)
+* [OPAQUE](https://github.com/bytemare/opaque)
+* [strong-AuCPace](https://github.com/bytemare/aucpace)
 
 OPRF are generally used in protocols like
 * password-authenticated key exchange (PAKE)
