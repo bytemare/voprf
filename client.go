@@ -149,7 +149,7 @@ func (c *Client) unblind(evaluated group.Element, index int) group.Element {
 		return evaluated.InvertMult(c.blind[index])
 	}
 
-	return evaluated.Copy().Sub(c.preprocessedBLind.blindedPubKey)
+	return evaluated.Sub(c.preprocessedBLind.blindedPubKey)
 }
 
 // Finalize finalizes the protocol execution by verifying the proof if necessary,

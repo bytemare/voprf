@@ -17,19 +17,18 @@ func (s *Server) evaluate(blinded group.Element) group.Element {
 	return blinded.Mult(s.privateKey)
 }
 
-func (s *Server) generateProof(blindedElements, evaluatedElements []group.Element) (c, sc group.Scalar) {
+func (s *Server) generateProof(blindedElements, evaluatedElements []group.Element) (proofC, proofS group.Scalar) {
 	a0, a1 := s.computeComposites(s.privateKey, s.publicKey, blindedElements, evaluatedElements)
 
 	r := s.group.NewScalar().Random()
 	a2 := s.group.Base().Mult(r)
 	a3 := a1.Mult(r)
 
-	c = s.proofScalar(s.publicKey, a0, a1, a2, a3)
-	sc = c.Copy()
-	m := sc.Mult(s.privateKey)
-	sc = r.Sub(m)
+	proofC = s.proofScalar(s.publicKey, a0, a1, a2, a3)
+	m := proofC.Mult(s.privateKey)
+	proofS = r.Sub(m)
 
-	return c, sc
+	return proofC, proofS
 }
 
 // KeyGen generates and sets a new private/public key pair.
