@@ -1,4 +1,6 @@
 # (V)OPRF : (Verifiable) Oblivious Pseudorandom Functions
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fbytemare%2Fvoprf.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fbytemare%2Fvoprf?ref=badge_shield)
+
 
 Package voprf provides abstracted access to Oblivious Pseudorandom Functions (OPRF) using Elliptic Curves (EC-OPRF).
 
@@ -153,3 +155,6 @@ OPRF are generally used in protocols like
 
 This package is just an implementation of the tremendous work and talent invested by researches and enthusiasts that care about your privacy and security.
 All merit goes to the (V)OPRF team.
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fbytemare%2Fvoprf.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fbytemare%2Fvoprf?ref=badge_large)
