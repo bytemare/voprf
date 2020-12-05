@@ -35,7 +35,7 @@ func (o *oprf) computeCompositesFast(encSeed, encCompositeDST []byte, privKey gr
 
 	for i, blinded := range blindedElements {
 		di := o.ccScalar(encSeed, uint(i), blinded, evaluatedElements[i], encCompositeDST)
-		m = m.Add(blindedElements[i].Mult(di))
+		m = blindedElements[i].Mult(di).Add(m)
 	}
 
 	return m, m.Mult(privKey)
@@ -48,8 +48,8 @@ func (o *oprf) computeCompositesClient(encSeed, encCompositeDST []byte,
 
 	for i, blinded := range blindedElements {
 		di := o.ccScalar(encSeed, uint(i), blinded, evaluatedElements[i], encCompositeDST)
-		m = m.Add(blindedElements[i].Mult(di))
-		z = z.Add(evaluatedElements[i].Mult(di))
+		m = blindedElements[i].Mult(di).Add(m)
+		z = evaluatedElements[i].Mult(di).Add(z)
 	}
 
 	return m, z
