@@ -39,23 +39,7 @@ func (s *Server) KeyGen() {
 
 // Evaluate the input with the private key.
 func (s *Server) Evaluate(blindedElement []byte) (*Evaluation, error) {
-	ev := &evaluation{}
-	ev.elements = make([]group.Element, 1)
-
-	b, err := s.group.NewElement().Decode(blindedElement)
-	if err != nil {
-		return nil, fmt.Errorf("OPRF can't evaluate input : %w", err)
-	}
-
-	ev.elements[0] = s.evaluate(b)
-
-	if s.mode == Verifiable {
-		c, s := s.generateProof([]group.Element{b}, ev.elements)
-		ev.proofC = c
-		ev.proofS = s
-	}
-
-	return ev.serialize(), nil
+	return s.EvaluateBatch([][]byte{blindedElement})
 }
 
 // EvaluateBatch evaluates the input batch of blindedElements and returns a pointer to the Evaluation. If the server
@@ -114,8 +98,7 @@ func (s *Server) VerifyFinalizeBatch(input, output [][]byte, info []byte) bool {
 	res := true
 
 	for i, in := range input {
-		digest := s.FullEvaluate(in, info)
-		res = res && ctEqual(digest, output[i])
+		res = s.VerifyFinalize(in, output[i], info)
 	}
 
 	return res

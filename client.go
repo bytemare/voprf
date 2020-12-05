@@ -160,14 +160,18 @@ func (c *Client) verifyProof(proofC, proofS group.Scalar, blindedElementList, ev
 	return ctEqual(expectedC.Bytes(), proofC.Bytes())
 }
 
+func (c *Client) innerBlind(input []byte, index int) {
+	c.input[index] = input
+	c.blind[index], c.blindedElement[index] = c.blindInput(input, c.blind[index])
+}
+
 // Blind blinds, or masks, the input with a preset or new random blinding element.
 func (c *Client) Blind(input []byte) []byte {
 	if err := c.initBlinding(1); err != nil {
 		panic(err)
 	}
 
-	c.input[0] = input
-	c.blind[0], c.blindedElement[0] = c.blindInput(input, c.blind[0])
+	c.innerBlind(input, 0)
 
 	return c.blindedElement[0].Bytes()
 }
@@ -184,8 +188,7 @@ func (c *Client) BlindBatch(input [][]byte) (blinds, blindedElements [][]byte, e
 	blindedElements = make([][]byte, len(input))
 
 	for i, in := range input {
-		c.input[i] = in
-		c.blind[i], c.blindedElement[i] = c.blindInput(in, c.blind[i])
+		c.innerBlind(in, i)
 		blinds[i] = c.blind[i].Bytes()
 		blindedElements[i] = c.blindedElement[i].Bytes()
 	}
@@ -230,33 +233,12 @@ func (c *Client) unblind(evaluated group.Element, index int) group.Element {
 // Finalize finalizes the protocol execution by verifying the proof if necessary,
 // unblinding the evaluated element, and hashing the transcript.
 func (c *Client) Finalize(e *Evaluation, info []byte) ([]byte, error) {
-	if len(e.Elements) != len(c.input) {
-		return nil, errParamFinalizeLen
-	}
-
-	ev, err := e.deserialize(c.group)
+	output, err := c.FinalizeBatch(e, info)
 	if err != nil {
 		return nil, err
 	}
 
-	if c.mode == Verifiable {
-		if ev.proofC == nil {
-			return nil, errNilProofC
-		}
-
-		if ev.proofS == nil {
-			return nil, errNilProofS
-		}
-
-		if !c.verifyProof(ev.proofC, ev.proofS, c.blindedElement, ev.elements) {
-			return nil, errProofFailed
-		}
-	}
-
-	u := c.unblind(ev.elements[0], 0)
-	f := c.hashTranscript(c.input[0], u.Bytes(), info)
-
-	return f, nil
+	return output[0], nil
 }
 
 // FinalizeFinalizeBatch finalizes the protocol execution by verifying the proof if necessary,
