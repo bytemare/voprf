@@ -122,7 +122,7 @@ func (c Ciphersuite) PreprocessWithBlind(blind, serverPublicKey []byte) (*Prepro
 	return preprocess(g, s, serverPublicKey)
 }
 
-// FromHashToGroup returns a VOPRF Ciphersuite identifier given a HashToGroup/Hash-to-Curve Identifier.
+// FromHashToGroup returns a (V)OPRF Ciphersuite identifier given a HashToGroup/Hash-to-Curve Identifier.
 func FromHashToGroup(id hashtogroup.Ciphersuite) (Ciphersuite, error) {
 	c, ok := h2gToOprf[id]
 	if !ok {

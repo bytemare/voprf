@@ -26,6 +26,81 @@ type Client struct {
 	preprocessedBLind *ppb
 }
 
+// State represents a client's state, allowing internal values to be exported and imported to resume a (V)OPRF session
+type State struct {
+	Ciphersuite	`json:"s"`
+	Mode	`json:"m"`
+	Blinding	`json:"b"`
+	ServerPublicKey []byte	`json:"p,omitempty"`
+	Input         [][]byte	`json:"i"`
+	Blind         [][]byte	`json:"r"`
+	PreprocessedBlind *PreprocessedBlind `json:"pb,omitempty"`
+}
+
+func (c *Client) Export() *State {
+	s := &State{
+		Ciphersuite: c.id,
+		Mode:        c.mode,
+		Blinding: c.blinding,
+		ServerPublicKey: c.serverPublicKey.Bytes(),
+	}
+
+	if len(c.input) != len(c.blind) {
+		panic("different number of input and blind values")
+	}
+
+	s.Input = make([][]byte, len(c.input))
+	s.Blind = make([][]byte, len(c.blind))
+
+	for i := 0; i < len(c.input); i++ {
+		copy(s.Input[i], c.input[i])
+		copy(s.Blind[i], c.blind[i].Bytes())
+	}
+
+	return s
+}
+
+func (c *Client) Import(state *State) error {
+	var err error
+
+	if len(state.Input) != len(state.Blind) {
+		return errors.New("different number of input and blind values")
+	}
+
+	if state.Blinding == Additive && state.PreprocessedBlind == nil {
+		return errors.New("state in additive blinding but no preprocessedblind")
+	}
+
+	if state.Mode == Verifiable && state.ServerPublicKey == nil {
+		return errors.New("state in verifiable mode but no server public key")
+	}
+
+	c.oprf = suites[state.Ciphersuite].new(state.Mode, state.Blinding)
+
+	c.serverPublicKey, err = c.group.NewElement().Decode(state.ServerPublicKey)
+	if err != nil {
+		return err
+	}
+
+	if state.PreprocessedBlind != nil {
+		c.preprocessedBLind, err = state.PreprocessedBlind.deserialize(c.group)
+		if err != nil {
+			return err
+		}
+	}
+
+	c.input = state.Input
+
+	for i, b := range state.Blind {
+		c.blind[i], err = c.group.NewScalar().Decode(b)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *Client) initBlinding(length int) error {
 	if len(c.input) == 0 {
 		c.input = make([][]byte, length)
