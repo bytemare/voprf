@@ -328,11 +328,11 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 	// Check proofs
 	if mode == Verifiable {
 		if !assert.Equal(t, test.ProofC, ev.ProofC) {
-			t.Fatal("unexpected c proof")
+			t.Error("unexpected c proof")
 		}
 
 		if !assert.Equal(t, test.ProofS, ev.ProofS) {
-			t.Fatal("unexpected s proof")
+			t.Error("unexpected s proof")
 		}
 	}
 
@@ -359,20 +359,25 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 	}
 
 	// Client finalize
-	output, err := client.Finalize(ev, test.Info)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	if test.Batch == 1 {
-		if !assert.Equal(t, test.Output[0], output[0], "finalize() output is not valid.") {
+		output, err := client.Finalize(ev, test.Info)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !assert.Equal(t, test.Output[0], output, "finalize() output is not valid.") {
 			t.Fatal("not equal")
 		}
 
-		if !server.VerifyFinalize(test.Input[0], output[0], test.Info) {
+		if !server.VerifyFinalize(test.Input[0], output, test.Info) {
 			t.Fatal("VerifyFinalize() returned false.")
 		}
 	} else {
+		output, err := client.FinalizeBatch(ev, test.Info)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		if !assert.Equal(t, test.Output, output, "finalizeBatch() output is not valid.") {
 			t.Fatal("not equal")
 		}

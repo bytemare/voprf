@@ -153,8 +153,40 @@ func (c *Client) unblind(evaluated group.Element, index int) group.Element {
 }
 
 // Finalize finalizes the protocol execution by verifying the proof if necessary,
+// unblinding the evaluated element, and hashing the transcript.
+func (c *Client) Finalize(e *Evaluation, info []byte) ([]byte, error) {
+	if len(e.Elements) != len(c.input) {
+		return nil, errParamFinalizeLen
+	}
+
+	ev, err := e.deserialize(c.group)
+	if err != nil {
+		return nil, err
+	}
+
+	if c.mode == Verifiable {
+		if ev.proofC == nil {
+			return nil, errNilProofC
+		}
+
+		if ev.proofS == nil {
+			return nil, errNilProofS
+		}
+
+		if !c.verifyProof(ev.proofC, ev.proofS, c.blindedElement, ev.elements) {
+			return nil, errProofFailed
+		}
+	}
+
+	u := c.unblind(ev.elements[0], 0)
+	f := c.hashTranscript(c.input[0], u.Bytes(), info)
+
+	return f, nil
+}
+
+// FinalizeFinalizeBatch finalizes the protocol execution by verifying the proof if necessary,
 // unblinding the evaluated elements, and hashing the transcript.
-func (c *Client) Finalize(e *Evaluation, info []byte) ([][]byte, error) {
+func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 	if len(e.Elements) != len(c.input) {
 		return nil, errParamFinalizeLen
 	}
