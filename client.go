@@ -42,7 +42,10 @@ func (c *Client) Export() *State {
 		Ciphersuite: c.id,
 		Mode:        c.mode,
 		Blinding: c.blinding,
-		ServerPublicKey: c.serverPublicKey.Bytes(),
+	}
+
+	if c.serverPublicKey != nil {
+		s.ServerPublicKey = c.serverPublicKey.Bytes()
 	}
 
 	if len(c.input) != len(c.blind) {
