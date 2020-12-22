@@ -65,6 +65,10 @@ var (
 	oprfToh2g = make(map[Ciphersuite]hashtogroup.Ciphersuite)
 )
 
+func (c Ciphersuite) Group() hashtogroup.Ciphersuite {
+	return oprfToh2g[c]
+}
+
 func (c Ciphersuite) register(g hashtogroup.Ciphersuite, h hash.Identifier) {
 	o := &oprf{
 		id:   c,
