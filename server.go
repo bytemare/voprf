@@ -22,7 +22,7 @@ func (s *Server) generateProof(blindedElements, evaluatedElements []group.Elemen
 
 	r := s.group.NewScalar().Random()
 	a2 := s.group.Base().Mult(r)
-	a3 := a1.Mult(r)
+	a3 := a0.Mult(r)
 
 	proofC = s.proofScalar(s.publicKey, a0, a1, a2, a3)
 	m := proofC.Mult(s.privateKey)

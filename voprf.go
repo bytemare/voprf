@@ -65,8 +65,14 @@ var (
 	oprfToh2g = make(map[Ciphersuite]hashtogroup.Ciphersuite)
 )
 
+// Group returns the group identifier used in the cipher suite.
 func (c Ciphersuite) Group() hashtogroup.Ciphersuite {
 	return oprfToh2g[c]
+}
+
+// Hash returns the hash function identifier used in the cipher suite.
+func (c Ciphersuite) Hash() hash.Identifier {
+	return suites[c].hash.Identifier()
 }
 
 func (c Ciphersuite) register(g hashtogroup.Ciphersuite, h hash.Identifier) {

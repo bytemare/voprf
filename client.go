@@ -26,22 +26,23 @@ type Client struct {
 	preprocessedBLind *ppb
 }
 
-// State represents a client's state, allowing internal values to be exported and imported to resume a (V)OPRF session
+// State represents a client's state, allowing internal values to be exported and imported to resume a (V)OPRF session.
 type State struct {
-	Ciphersuite	`json:"s"`
-	Mode	`json:"m"`
-	Blinding	`json:"b"`
-	ServerPublicKey []byte	`json:"p,omitempty"`
-	Input         [][]byte	`json:"i"`
-	Blind         [][]byte	`json:"r"`
+	Ciphersuite       `json:"s"`
+	Mode              `json:"m"`
+	Blinding          `json:"b"`
+	ServerPublicKey   []byte             `json:"p,omitempty"`
+	Input             [][]byte           `json:"i"`
+	Blind             [][]byte           `json:"r"`
 	PreprocessedBlind *PreprocessedBlind `json:"pb,omitempty"`
 }
 
+// Export extracts the client's internal values that can be imported in an other client for session resumption.
 func (c *Client) Export() *State {
 	s := &State{
 		Ciphersuite: c.id,
 		Mode:        c.mode,
-		Blinding: c.blinding,
+		Blinding:    c.blinding,
 	}
 
 	if c.serverPublicKey != nil {
@@ -67,15 +68,15 @@ func (c *Client) Import(state *State) error {
 	var err error
 
 	if len(state.Input) != len(state.Blind) {
-		return errors.New("different number of input and blind values")
+		return errStateDiffN
 	}
 
 	if state.Blinding == Additive && state.PreprocessedBlind == nil {
-		return errors.New("state in additive blinding but no preprocessedblind")
+		return errStateNoPPB
 	}
 
 	if state.Mode == Verifiable && state.ServerPublicKey == nil {
-		return errors.New("state in verifiable mode but no server public key")
+		return errStateNoPubKey
 	}
 
 	c.oprf = suites[state.Ciphersuite].new(state.Mode, state.Blinding)
@@ -244,7 +245,7 @@ func (c *Client) Finalize(e *Evaluation, info []byte) ([]byte, error) {
 	return output[0], nil
 }
 
-// FinalizeFinalizeBatch finalizes the protocol execution by verifying the proof if necessary,
+// FinalizeBatch finalizes the protocol execution by verifying the proof if necessary,
 // unblinding the evaluated elements, and hashing the transcript.
 func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 	if len(e.Elements) != len(c.input) {
