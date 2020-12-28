@@ -16,7 +16,7 @@ type PreprocessedBlind struct {
 // DecodePreprocessedBlind decodes the encoded input preprocessed values and returns a pointer to an initialised
 // PreprocessedBlind structure.
 func DecodePreprocessedBlind(input []byte, enc encoding.Encoding) (*PreprocessedBlind, error) {
-	p, err := enc.Decode(input, &Evaluation{})
+	p, err := enc.Decode(input, &PreprocessedBlind{})
 	if err != nil {
 		return nil, fmt.Errorf("could not decode preprocessed blind : %w", err)
 	}

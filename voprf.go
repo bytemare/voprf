@@ -27,7 +27,7 @@ const (
 	Multiplicative Blinding = iota + 1
 
 	// Additive blinding blinds an element with a fixed based exponentiation,
-	// which is more efficient on protocol execution.
+	// which is more efficient on protocol execution but needs storage.
 	Additive
 )
 
@@ -38,16 +38,16 @@ const (
 	// RistrettoSha512 is the OPRF cipher suite of the Ristretto255 group and SHA-512.
 	RistrettoSha512 Ciphersuite = iota + 1
 
-	// Decaf448Sha512 is the OPRF cipher suite of the Decaf448 group and SHA2-512.
+	// Decaf448Sha512 is the OPRF cipher suite of the Decaf448 group and SHA-512.
 	Decaf448Sha512
 
-	// P256Sha256 is the OPRF cipher suite of the NIST P-256 group and SHA2-256.
+	// P256Sha256 is the OPRF cipher suite of the NIST P-256 group and SHA-256.
 	P256Sha256
 
-	// P384Sha512 is the OPRF cipher suite of the NIST P-384 group and SHA2-512.
+	// P384Sha512 is the OPRF cipher suite of the NIST P-384 group and SHA-512.
 	P384Sha512
 
-	// P521Sha512 is the OPRF cipher suite of the NIST P-512 group and SHA2-512.
+	// P521Sha512 is the OPRF cipher suite of the NIST P-512 group and SHA-512.
 	P521Sha512
 
 	maxID
@@ -60,19 +60,29 @@ const (
 )
 
 var (
-	suites    = make([]*oprf, maxID)
-	h2gToOprf = make(map[hashtogroup.Ciphersuite]Ciphersuite)
-	oprfToh2g = make(map[Ciphersuite]hashtogroup.Ciphersuite)
+	suites      = make([]*oprf, maxID)
+	groupToOprf = make(map[hashtogroup.Ciphersuite]Ciphersuite)
+	oprfToGroup = make(map[Ciphersuite]hashtogroup.Ciphersuite)
 )
 
 // Group returns the group identifier used in the cipher suite.
 func (c Ciphersuite) Group() hashtogroup.Ciphersuite {
-	return oprfToh2g[c]
+	return oprfToGroup[c]
 }
 
 // Hash returns the hash function identifier used in the cipher suite.
 func (c Ciphersuite) Hash() hash.Identifier {
 	return suites[c].hash.Identifier()
+}
+
+// FromGroup returns a (V)OPRF Ciphersuite identifier given a Group Identifier.
+func FromGroup(id hashtogroup.Ciphersuite) (Ciphersuite, error) {
+	c, ok := groupToOprf[id]
+	if !ok {
+		return 0, errParamInvalidID
+	}
+
+	return c, nil
 }
 
 func (c Ciphersuite) register(g hashtogroup.Ciphersuite, h hash.Identifier) {
@@ -82,8 +92,8 @@ func (c Ciphersuite) register(g hashtogroup.Ciphersuite, h hash.Identifier) {
 	}
 
 	suites[c] = o
-	h2gToOprf[g] = c
-	oprfToh2g[c] = g
+	groupToOprf[g] = c
+	oprfToGroup[c] = g
 }
 
 func preprocess(g group.Group, blind group.Scalar, pubKey []byte) (*PreprocessedBlind, error) {
@@ -132,16 +142,6 @@ func (c Ciphersuite) PreprocessWithBlind(blind, serverPublicKey []byte) (*Prepro
 	return preprocess(g, s, serverPublicKey)
 }
 
-// FromHashToGroup returns a (V)OPRF Ciphersuite identifier given a HashToGroup/Hash-to-Curve Identifier.
-func FromHashToGroup(id hashtogroup.Ciphersuite) (Ciphersuite, error) {
-	c, ok := h2gToOprf[id]
-	if !ok {
-		return 0, errParamInvalidID
-	}
-
-	return c, nil
-}
-
 type oprf struct {
 	id            Ciphersuite
 	mode          Mode
@@ -164,7 +164,7 @@ func (o *oprf) new(mode Mode, blinding Blinding) *oprf {
 	o.blinding = blinding
 	o.contextString = contextString(mode, o.id)
 	h2gDST := o.dst(hash2groupDSTPrefix)
-	o.group = oprfToh2g[o.id].Get(h2gDST)
+	o.group = oprfToGroup[o.id].Get(h2gDST)
 
 	return o
 }

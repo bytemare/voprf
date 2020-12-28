@@ -3,5 +3,5 @@
 //
 // This work in progress implements https://tools.ietf.org/html/draft-irtf-cfrg-voprf
 //
-// Integrations can use either additive or multiplicative operations.
+// Integrations can use either base or verifiable mode with additive or multiplicative operations.
 package voprf
