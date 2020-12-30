@@ -142,6 +142,26 @@ func (c Ciphersuite) PreprocessWithBlind(blind, serverPublicKey []byte) (*Prepro
 	return preprocess(g, s, serverPublicKey)
 }
 
+// KeyPair assembles a VOPRF key pair. The SecretKey can be used as the evaluation key for the group identified by ID.
+type KeyPair struct {
+	ID        Ciphersuite
+	PublicKey []byte
+	SecretKey []byte
+}
+
+// KeyGen returns a fresh KeyPair for the given cipher suite.
+func (c Ciphersuite) KeyGen() *KeyPair {
+	g := c.Group().Get([]byte(hash2groupDSTPrefix))
+	sk := g.NewScalar().Random()
+	pk := g.Base().Mult(sk)
+
+	return &KeyPair{
+		ID:        c,
+		PublicKey: pk.Bytes(),
+		SecretKey: sk.Bytes(),
+	}
+}
+
 type oprf struct {
 	id            Ciphersuite
 	mode          Mode
