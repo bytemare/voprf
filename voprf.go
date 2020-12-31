@@ -2,9 +2,9 @@ package voprf
 
 import (
 	"github.com/bytemare/cryptotools/encoding"
+	"github.com/bytemare/cryptotools/group"
+	"github.com/bytemare/cryptotools/group/ciphersuite"
 	"github.com/bytemare/cryptotools/hash"
-	"github.com/bytemare/cryptotools/hashtogroup"
-	"github.com/bytemare/cryptotools/hashtogroup/group"
 )
 
 // Mode distinguishes between the OPRF base mode and the Verifiable mode.
@@ -61,12 +61,12 @@ const (
 
 var (
 	suites      = make([]*oprf, maxID)
-	groupToOprf = make(map[hashtogroup.Ciphersuite]Ciphersuite)
-	oprfToGroup = make(map[Ciphersuite]hashtogroup.Ciphersuite)
+	groupToOprf = make(map[ciphersuite.Identifier]Ciphersuite)
+	oprfToGroup = make(map[Ciphersuite]ciphersuite.Identifier)
 )
 
 // Group returns the group identifier used in the cipher suite.
-func (c Ciphersuite) Group() hashtogroup.Ciphersuite {
+func (c Ciphersuite) Group() ciphersuite.Identifier {
 	return oprfToGroup[c]
 }
 
@@ -76,7 +76,7 @@ func (c Ciphersuite) Hash() hash.Identifier {
 }
 
 // FromGroup returns a (V)OPRF Ciphersuite identifier given a Group Identifier.
-func FromGroup(id hashtogroup.Ciphersuite) (Ciphersuite, error) {
+func FromGroup(id ciphersuite.Identifier) (Ciphersuite, error) {
 	c, ok := groupToOprf[id]
 	if !ok {
 		return 0, errParamInvalidID
@@ -85,7 +85,7 @@ func FromGroup(id hashtogroup.Ciphersuite) (Ciphersuite, error) {
 	return c, nil
 }
 
-func (c Ciphersuite) register(g hashtogroup.Ciphersuite, h hash.Identifier) {
+func (c Ciphersuite) register(g ciphersuite.Identifier, h hash.Identifier) {
 	o := &oprf{
 		id:   c,
 		hash: h.Get(),
@@ -296,9 +296,9 @@ func (c Ciphersuite) VerifiableServer(privateKey []byte) (*Server, error) {
 }
 
 func init() {
-	RistrettoSha512.register(hashtogroup.Ristretto255Sha512, hash.SHA512)
-	Decaf448Sha512.register(hashtogroup.Curve448Sha512, hash.SHA512)
-	P256Sha256.register(hashtogroup.P256Sha256, hash.SHA256)
-	P384Sha512.register(hashtogroup.P384Sha512, hash.SHA512)
-	P521Sha512.register(hashtogroup.P521Sha512, hash.SHA512)
+	RistrettoSha512.register(ciphersuite.Ristretto255Sha512, hash.SHA512)
+	Decaf448Sha512.register(ciphersuite.Curve448Sha512, hash.SHA512)
+	P256Sha256.register(ciphersuite.P256Sha256, hash.SHA256)
+	P384Sha512.register(ciphersuite.P384Sha512, hash.SHA512)
+	P521Sha512.register(ciphersuite.P521Sha512, hash.SHA512)
 }

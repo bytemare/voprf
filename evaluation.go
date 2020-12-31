@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bytemare/cryptotools/encoding"
-	"github.com/bytemare/cryptotools/hashtogroup/group"
+	"github.com/bytemare/cryptotools/group"
 )
 
 // Evaluation holds the serialised evaluated elements and serialised proof.
