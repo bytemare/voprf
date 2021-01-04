@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bytemare/cryptotools/hashtogroup/group"
+	"github.com/bytemare/cryptotools/group"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/bytemare/cryptotools/encoding"
