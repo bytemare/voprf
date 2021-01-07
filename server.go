@@ -113,3 +113,8 @@ func (s *Server) PrivateKey() []byte {
 func (s *Server) PublicKey() []byte {
 	return s.publicKey.Bytes()
 }
+
+// Ciphersuite returns the cipher suite used in s' instance.
+func (s *Server) Ciphersuite() Ciphersuite {
+	return s.id
+}
