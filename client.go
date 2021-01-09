@@ -28,9 +28,9 @@ type Client struct {
 
 // State represents a client's state, allowing internal values to be exported and imported to resume a (V)OPRF session.
 type State struct {
-	Ciphersuite       `json:"s"`
-	Mode              `json:"m"`
-	Blinding          `json:"b"`
+	Ciphersuite       Ciphersuite        `json:"s"`
+	Mode              Mode               `json:"m"`
+	Blinding          Blinding           `json:"b"`
 	ServerPublicKey   []byte             `json:"p,omitempty"`
 	Input             [][]byte           `json:"i"`
 	Blind             [][]byte           `json:"r"`
