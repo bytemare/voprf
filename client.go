@@ -34,6 +34,7 @@ type State struct {
 	ServerPublicKey   []byte             `json:"p,omitempty"`
 	Input             [][]byte           `json:"i"`
 	Blind             [][]byte           `json:"r"`
+	Blinded           [][]byte           `json:"d"`
 	PreprocessedBlind *PreprocessedBlind `json:"pb,omitempty"`
 }
 
@@ -55,10 +56,17 @@ func (c *Client) Export() *State {
 
 	s.Input = make([][]byte, len(c.input))
 	s.Blind = make([][]byte, len(c.blind))
+	s.Blinded = make([][]byte, len(c.blindedElement))
 
 	for i := 0; i < len(c.input); i++ {
+		s.Input[i] = make([]byte, len(c.input[i]))
 		copy(s.Input[i], c.input[i])
-		copy(s.Blind[i], c.blind[i].Bytes())
+		s.Blind[i] = c.blind[i].Bytes()
+		s.Blinded[i] = c.blindedElement[i].Bytes()
+	}
+
+	if c.preprocessedBLind != nil {
+		s.PreprocessedBlind = c.preprocessedBLind.serialize()
 	}
 
 	return s
@@ -95,8 +103,20 @@ func (c *Client) Import(state *State) error {
 
 	c.input = state.Input
 
-	for i, b := range state.Blind {
-		c.blind[i], err = c.group.NewScalar().Decode(b)
+	c.input = make([][]byte, len(state.Input))
+	c.blind = make([]group.Scalar, len(state.Blind))
+	c.blindedElement = make([]group.Element, len(state.Blinded))
+
+	for i := 0; i < len(c.input); i++ {
+		c.input[i] = make([]byte, len(state.Input[i]))
+		copy(c.input[i], state.Input[i])
+
+		c.blind[i], err = c.group.NewScalar().Decode(state.Blind[i])
+		if err != nil {
+			return err
+		}
+
+		c.blindedElement[i], err = c.group.NewElement().Decode(state.Blinded[i])
 		if err != nil {
 			return err
 		}

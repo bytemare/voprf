@@ -52,6 +52,12 @@ const (
 
 	maxID
 
+	sRistrettoSha512 = "RistrettoSha512"
+	sDecaf448Sha512  = "Decaf448Sha512"
+	sP256Sha256      = "P256Sha256"
+	sP384Sha512      = "P384Sha512"
+	sP521Sha512      = "P521Sha512"
+
 	// protocol is a string explicitly stating the protocol name.
 	protocol = "VOPRF06"
 
@@ -299,15 +305,15 @@ func (c Ciphersuite) VerifiableServer(privateKey []byte) (*Server, error) {
 func (c Ciphersuite) String() string {
 	switch c {
 	case RistrettoSha512:
-		return "RistrettoSha512"
+		return sRistrettoSha512
 	case Decaf448Sha512:
-		return "Decaf448Sha512"
+		return sDecaf448Sha512
 	case P256Sha256:
-		return "P256Sha256"
+		return sP256Sha256
 	case P384Sha512:
-		return "P384Sha512"
+		return sP384Sha512
 	case P521Sha512:
-		return "P521Sha512"
+		return sP521Sha512
 	default:
 		return ""
 	}
