@@ -295,6 +295,24 @@ func (c Ciphersuite) VerifiableServer(privateKey []byte) (*Server, error) {
 	return s, nil
 }
 
+// String implements the Stringer() interface for the Ciphersuite.
+func (c Ciphersuite) String() string {
+	switch c {
+	case RistrettoSha512:
+		return "RistrettoSha512"
+	case Decaf448Sha512:
+		return "Decaf448Sha512"
+	case P256Sha256:
+		return "P256Sha256"
+	case P384Sha512:
+		return "P384Sha512"
+	case P521Sha512:
+		return "P521Sha512"
+	default:
+		return ""
+	}
+}
+
 func init() {
 	RistrettoSha512.register(ciphersuite.Ristretto255Sha512, hash.SHA512)
 	Decaf448Sha512.register(ciphersuite.Curve448Sha512, hash.SHA512)
