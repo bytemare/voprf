@@ -15,15 +15,15 @@ const (
 )
 
 func lengthPrefixEncode(input []byte) []byte {
-	return append(encoding.I2OSP2(uint(len(input))), input...)
+	return append(encoding.I2OSP(len(input), 2), input...)
 }
 
 func ctEqual(a, b []byte) bool {
 	return subtle.ConstantTimeCompare(a, b) == 1
 }
 
-func (o *oprf) ccScalar(encSeed []byte, index uint, blindedElement, evaluatedElement group.Element, encCompositeDST []byte) group.Scalar {
-	return o.group.HashToScalar(encSeed, encoding.I2OSP2(index),
+func (o *oprf) ccScalar(encSeed []byte, index int, blindedElement, evaluatedElement group.Element, encCompositeDST []byte) group.Scalar {
+	return o.group.HashToScalar(encSeed, encoding.I2OSP(index, 2),
 		lengthPrefixEncode(blindedElement.Bytes()),
 		lengthPrefixEncode(evaluatedElement.Bytes()),
 		encCompositeDST)
@@ -34,7 +34,7 @@ func (o *oprf) computeCompositesFast(encSeed, encCompositeDST []byte, privKey gr
 	m = o.group.Identity()
 
 	for i, blinded := range blindedElements {
-		di := o.ccScalar(encSeed, uint(i), blinded, evaluatedElements[i], encCompositeDST)
+		di := o.ccScalar(encSeed, i, blinded, evaluatedElements[i], encCompositeDST)
 		m = blindedElements[i].Mult(di).Add(m)
 	}
 
@@ -47,7 +47,7 @@ func (o *oprf) computeCompositesClient(encSeed, encCompositeDST []byte,
 	z = o.group.Identity()
 
 	for i, blinded := range blindedElements {
-		di := o.ccScalar(encSeed, uint(i), blinded, evaluatedElements[i], encCompositeDST)
+		di := o.ccScalar(encSeed, i, blinded, evaluatedElements[i], encCompositeDST)
 		m = blindedElements[i].Mult(di).Add(m)
 		z = evaluatedElements[i].Mult(di).Add(z)
 	}

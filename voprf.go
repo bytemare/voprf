@@ -178,7 +178,7 @@ type oprf struct {
 }
 
 func contextString(mode Mode, id Ciphersuite) []byte {
-	return append(encoding.I2OSP1(uint(mode)), encoding.I2OSP2(uint(id))...)
+	return append(encoding.I2OSP(int(mode), 1), encoding.I2OSP(int(id), 2)...)
 }
 
 func (o *oprf) dst(prefix string) []byte {

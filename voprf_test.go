@@ -464,20 +464,13 @@ func TestVOPRF(t *testing.T) {
 				return nil
 			}
 
-			file, errOpen := os.Open(path)
-			if errOpen != nil {
-				return errOpen
-			}
-
-			defer file.Close()
-
-			val, errRead := ioutil.ReadAll(file)
-			if errRead != nil {
-				return errRead
+			contents, err := ioutil.ReadFile(path)
+			if err != nil {
+				return err
 			}
 
 			var v testVectors
-			errJSON := json.Unmarshal(val, &v)
+			errJSON := json.Unmarshal(contents, &v)
 			if errJSON != nil {
 				return errJSON
 			}
