@@ -101,8 +101,6 @@ func (c *Client) Import(state *State) error {
 		}
 	}
 
-	c.input = state.Input
-
 	c.input = make([][]byte, len(state.Input))
 	c.blind = make([]group.Scalar, len(state.Blind))
 	c.blindedElement = make([]group.Element, len(state.Blinded))
