@@ -75,8 +75,12 @@ func (c *Client) Export() *State {
 func (c *Client) Import(state *State) error {
 	var err error
 
-	if len(state.Input) != len(state.Blind) {
-		return errStateDiffN
+	if len(state.Input) != len(state.Blinded) {
+		return errStateDiffInput
+	}
+
+	if len(state.Blinded) != 0 && len(state.Blinded) != len(state.Blind) {
+		return errStateDiffBlind
 	}
 
 	if state.Blinding == Additive && state.PreprocessedBlind == nil {
@@ -101,21 +105,20 @@ func (c *Client) Import(state *State) error {
 		}
 	}
 
-	c.input = make([][]byte, len(state.Input))
 	c.blind = make([]group.Scalar, len(state.Blind))
-
-	for i := 0; i < len(state.Input); i++ {
-		c.input[i] = make([]byte, len(state.Input[i]))
-		copy(c.input[i], state.Input[i])
-
+	for i := 0; i < len(state.Blind); i++ {
 		c.blind[i], err = c.group.NewScalar().Decode(state.Blind[i])
 		if err != nil {
 			return err
 		}
 	}
 
+	c.input = make([][]byte, len(state.Input))
 	c.blindedElement = make([]group.Element, len(state.Blinded))
 	for i := 0; i < len(state.Blinded); i++ {
+		c.input[i] = make([]byte, len(state.Input[i]))
+		copy(c.input[i], state.Input[i])
+
 		c.blindedElement[i], err = c.group.NewElement().Decode(state.Blinded[i])
 		if err != nil {
 			return err

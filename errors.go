@@ -18,9 +18,10 @@ var (
 	errInternalDecodePPB  = errors.New("internal : could not decode/cast to PreprocessedBlind struct")
 	errInternalDecodeEval = errors.New("internal : could not decode/cast to Evaluation struct")
 
-	errStateDiffN    = errors.New("state : different number of input and blind values")
-	errStateNoPPB    = errors.New("state in additive blinding but no preprocessedblind")
-	errStateNoPubKey = errors.New("state in verifiable mode but no server public key")
+	errStateDiffInput = errors.New("state : different number of input and blinded values")
+	errStateDiffBlind = errors.New("state : got blinded elements but different number of blinds")
+	errStateNoPPB     = errors.New("state in additive blinding but no preprocessedblind")
+	errStateNoPubKey  = errors.New("state in verifiable mode but no server public key")
 
 	errProofFailed = errors.New("proof fails")
 )
