@@ -103,9 +103,8 @@ func (c *Client) Import(state *State) error {
 
 	c.input = make([][]byte, len(state.Input))
 	c.blind = make([]group.Scalar, len(state.Blind))
-	c.blindedElement = make([]group.Element, len(state.Blinded))
 
-	for i := 0; i < len(c.input); i++ {
+	for i := 0; i < len(state.Input); i++ {
 		c.input[i] = make([]byte, len(state.Input[i]))
 		copy(c.input[i], state.Input[i])
 
@@ -113,7 +112,10 @@ func (c *Client) Import(state *State) error {
 		if err != nil {
 			return err
 		}
+	}
 
+	c.blindedElement = make([]group.Element, len(state.Blinded))
+	for i := 0; i < len(state.Blinded); i++ {
 		c.blindedElement[i], err = c.group.NewElement().Decode(state.Blinded[i])
 		if err != nil {
 			return err
