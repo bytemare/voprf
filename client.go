@@ -87,15 +87,19 @@ func (c *Client) Import(state *State) error {
 		return errStateNoPPB
 	}
 
+	// todo : check blinding == mult && ppb != nil
+
 	if state.Mode == Verifiable && state.ServerPublicKey == nil {
 		return errStateNoPubKey
 	}
 
 	c.oprf = suites[state.Ciphersuite].new(state.Mode, state.Blinding)
 
-	c.serverPublicKey, err = c.group.NewElement().Decode(state.ServerPublicKey)
-	if err != nil {
-		return err
+	if state.ServerPublicKey != nil {
+		c.serverPublicKey, err = c.group.NewElement().Decode(state.ServerPublicKey)
+		if err != nil {
+			return err
+		}
 	}
 
 	if state.PreprocessedBlind != nil {
