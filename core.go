@@ -65,7 +65,7 @@ func (o *oprf) computeComposites(privKey group.Scalar, pubKey group.Element,
 
 	// build seed
 	encPkS := lengthPrefixEncode(pubKey.Bytes())
-	seed := o.hash.Hash(0, encPkS, encSeedDST)
+	seed := o.hash.Hash(encPkS, encSeedDST)
 	encSeed := lengthPrefixEncode(seed)
 
 	// This means where calling from the server, and can optimize computation of Z, since Zi = sks * Mi
@@ -83,7 +83,7 @@ func (o *oprf) hashTranscript(input, unblinded, info []byte) []byte {
 	encInfo := lengthPrefixEncode(info)
 	encDST := lengthPrefixEncode(finalizeDST)
 
-	return o.hash.Hash(o.hash.OutputSize(), encInput, encElement, encInfo, encDST)
+	return o.hash.Hash(encInput, encElement, encInfo, encDST)
 }
 
 func (o *oprf) proofScalar(publicKey, a0, a1, a2, a3 group.Element) group.Scalar {

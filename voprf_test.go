@@ -164,7 +164,7 @@ func hashToHash(h string) hash.Identifier {
 	case "BLAKE2XS":
 		return hash.BLAKE2XS
 	default:
-		return 0
+		return nil
 	}
 }
 
@@ -176,7 +176,7 @@ func (v vector) checkParams(t *testing.T) {
 
 	// Check hash
 	hID := hashToHash(v.Hash)
-	if hID == 0 {
+	if hID == nil {
 		t.Fatalf("invalid hash function %v", v.Hash)
 	}
 

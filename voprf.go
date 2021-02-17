@@ -77,8 +77,8 @@ func (c Ciphersuite) Group() ciphersuite.Identifier {
 }
 
 // Hash returns the hash function identifier used in the cipher suite.
-func (c Ciphersuite) Hash() hash.Identifier {
-	return suites[c].hash.Identifier()
+func (c Ciphersuite) Hash() hash.Hashing {
+	return suites[c].hash.Hashing
 }
 
 // FromGroup returns a (V)OPRF Ciphersuite identifier given a Group Identifier.
@@ -91,7 +91,7 @@ func FromGroup(id ciphersuite.Identifier) (Ciphersuite, error) {
 	return c, nil
 }
 
-func (c Ciphersuite) register(g ciphersuite.Identifier, h hash.Identifier) {
+func (c Ciphersuite) register(g ciphersuite.Identifier, h hash.Hashing) {
 	o := &oprf{
 		id:   c,
 		hash: h.Get(),
