@@ -119,6 +119,7 @@ func (c *Client) Import(state *State) error {
 
 	c.input = make([][]byte, len(state.Input))
 	c.blindedElement = make([]group.Element, len(state.Blinded))
+
 	for i := 0; i < len(state.Blinded); i++ {
 		c.input[i] = make([]byte, len(state.Input[i]))
 		copy(c.input[i], state.Input[i])
@@ -263,8 +264,8 @@ func (c *Client) unblind(evaluated group.Element, index int) group.Element {
 
 // Finalize finalizes the protocol execution by verifying the proof if necessary,
 // unblinding the evaluated element, and hashing the transcript.
-func (c *Client) Finalize(e *Evaluation, info []byte) ([]byte, error) {
-	output, err := c.FinalizeBatch(e, info)
+func (c *Client) Finalize(e *Evaluation) ([]byte, error) {
+	output, err := c.FinalizeBatch(e)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +275,7 @@ func (c *Client) Finalize(e *Evaluation, info []byte) ([]byte, error) {
 
 // FinalizeBatch finalizes the protocol execution by verifying the proof if necessary,
 // unblinding the evaluated elements, and hashing the transcript.
-func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
+func (c *Client) FinalizeBatch(e *Evaluation) ([][]byte, error) {
 	if len(e.Elements) != len(c.input) {
 		return nil, errParamFinalizeLen
 	}
@@ -302,7 +303,7 @@ func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 
 	for i, ee := range ev.elements {
 		u := c.unblind(ee, i)
-		out[i] = c.hashTranscript(c.input[i], u.Bytes(), info)
+		out[i] = c.hashTranscript(c.input[i], u.Bytes())
 	}
 
 	return out, nil
