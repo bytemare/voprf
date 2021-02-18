@@ -78,27 +78,27 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte) (*Evaluation, error) {
 
 // FullEvaluate reproduces the full PRF but without the blinding operations, using the client's input.
 // This should output the same digest as the client's Finalize() function.
-func (s *Server) FullEvaluate(input []byte) []byte {
+func (s *Server) FullEvaluate(input, info []byte) []byte {
 	p := s.group.HashToGroup(input)
 	t := s.evaluate(p)
 
-	return s.hashTranscript(input, t.Bytes())
+	return s.hashTranscript(input, t.Bytes(), info)
 }
 
 // VerifyFinalize takes the client input (the un-blinded element) and the client's finalize() output,
 // and returns whether it can match the client's output.
-func (s *Server) VerifyFinalize(input, output []byte) bool {
-	digest := s.FullEvaluate(input)
+func (s *Server) VerifyFinalize(input, output, info []byte) bool {
+	digest := s.FullEvaluate(input, info)
 	return ctEqual(digest, output)
 }
 
 // VerifyFinalizeBatch takes the batch of client input (the un-blinded elements) and the client's finalize() outputs,
 // and returns whether it can match the client's outputs.
-func (s *Server) VerifyFinalizeBatch(input, output [][]byte) bool {
+func (s *Server) VerifyFinalizeBatch(input, output [][]byte, info []byte) bool {
 	res := true
 
 	for i, in := range input {
-		res = s.VerifyFinalize(in, output[i])
+		res = s.VerifyFinalize(in, output[i], info)
 	}
 
 	return res

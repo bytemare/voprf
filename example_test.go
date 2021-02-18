@@ -38,6 +38,7 @@ func exchangeWithServer(blinded []byte, verifiable bool, enc encoding.Encoding) 
 
 func ExampleBaseMultiplicativeClient() {
 	input := []byte("input")
+	info := []byte("some app info")
 	enc := encoding.JSON
 
 	// Set up a new client. Not indicating a server public key indicates we don't use the verifiable mode.
@@ -59,7 +60,7 @@ func ExampleBaseMultiplicativeClient() {
 	}
 
 	// The client finalizes the protocol execution by reverting the blinding and hashing the protocol transcript.
-	output, err := client.Finalize(eval)
+	output, err := client.Finalize(eval, info)
 	if output == nil || err != nil {
 		panic(err)
 	}
@@ -68,6 +69,7 @@ func ExampleBaseMultiplicativeClient() {
 
 func ExampleVerifiableMultiplicativeClient() {
 	input := []byte("input")
+	info := []byte("some app info")
 	serverPubKey, _ := hex.DecodeString("066c39841db2ca3c2e83e251e71b619013674149692ca2ab41d1b33a1a4fff38")
 	enc := encoding.JSON
 
@@ -91,7 +93,7 @@ func ExampleVerifiableMultiplicativeClient() {
 
 	// The client finalizes the protocol execution by reverting the blinding and hashing the protocol transcript.
 	// If proof verification fails, an error is returned.
-	output, err := client.Finalize(eval)
+	output, err := client.Finalize(eval, info)
 	if output == nil || err != nil {
 		panic(err)
 	}
