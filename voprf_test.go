@@ -26,7 +26,6 @@ type test struct {
 	EvaluationElement [][]byte
 	ProofC            []byte
 	ProofS            []byte
-	Info              []byte
 	Input             [][]byte
 	Output            [][]byte
 	UnblindedElement  [][]byte
@@ -43,7 +42,6 @@ type testVector struct {
 		C string `json:"c,omitempty"`
 		S string `json:"s,omitempty"`
 	} `json:"EvaluationProof,omitempty"`
-	Info             string `json:"Info"`
 	Input            string `json:"Input"`
 	Output           string `json:"Output"`
 	UnblindedElement string `json:"UnblindedElement"`
@@ -97,11 +95,6 @@ func (tv *testVector) Decode() (*test, error) {
 		return nil, fmt.Errorf(" ProofS decoding errored with %q", err)
 	}
 
-	info, err := hex.DecodeString(tv.Info)
-	if err != nil {
-		return nil, fmt.Errorf(" Info decoding errored with %q", err)
-	}
-
 	input, err := decodeBatch(tv.Batch, tv.Input)
 	// input, err := hex.DecodeString(tv.Input)
 	if err != nil {
@@ -127,7 +120,6 @@ func (tv *testVector) Decode() (*test, error) {
 		EvaluationElement: evaluationElement,
 		ProofC:            proofC,
 		ProofS:            proofS,
-		Info:              info,
 		Input:             input,
 		Output:            output,
 		UnblindedElement:  unblinded,
@@ -362,7 +354,7 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 
 	// Client finalize
 	if test.Batch == 1 {
-		output, err := client.Finalize(ev, test.Info)
+		output, err := client.Finalize(ev)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -371,11 +363,11 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 			t.Fatal("not equal")
 		}
 
-		if !server.VerifyFinalize(test.Input[0], output, test.Info) {
+		if !server.VerifyFinalize(test.Input[0], output) {
 			t.Fatal("VerifyFinalize() returned false.")
 		}
 	} else {
-		output, err := client.FinalizeBatch(ev, test.Info)
+		output, err := client.FinalizeBatch(ev)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -384,7 +376,7 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 			t.Fatal("not equal")
 		}
 
-		if !server.VerifyFinalizeBatch(test.Input, output, test.Info) {
+		if !server.VerifyFinalizeBatch(test.Input, output) {
 			t.Fatal("VerifyFinalize() returned false.")
 		}
 	}

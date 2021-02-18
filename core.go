@@ -76,14 +76,13 @@ func (o *oprf) computeComposites(privKey group.Scalar, pubKey group.Element,
 	return o.computeCompositesClient(encSeed, encCompositeDST, blindedElements, evaluatedElements)
 }
 
-func (o *oprf) hashTranscript(input, unblinded, info []byte) []byte {
+func (o *oprf) hashTranscript(input, unblinded []byte) []byte {
 	finalizeDST := o.dst(dstFinalizePrefix)
 	encInput := lengthPrefixEncode(input)
 	encElement := lengthPrefixEncode(unblinded)
-	encInfo := lengthPrefixEncode(info)
 	encDST := lengthPrefixEncode(finalizeDST)
 
-	return o.hash.Hash(encInput, encElement, encInfo, encDST)
+	return o.hash.Hash(encInput, encElement, encDST)
 }
 
 func (o *oprf) proofScalar(publicKey, a0, a1, a2, a3 group.Element) group.Scalar {
