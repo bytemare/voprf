@@ -63,6 +63,9 @@ const (
 
 	// hash2groupDSTPrefix is the DST prefix to use for HashToGroup operations.
 	hash2groupDSTPrefix = protocol + "-HashToGroup-"
+
+	// hash2scalarDSTPrefix is the DST prefix to use for HashToGroup operations.
+	hash2scalarDSTPrefix = protocol + "-HashToScalar-"
 )
 
 var (

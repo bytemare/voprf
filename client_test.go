@@ -2,9 +2,10 @@ package voprf
 
 import (
 	"bytes"
-	"github.com/bytemare/cryptotools/encoding"
 	"reflect"
 	"testing"
+
+	"github.com/bytemare/cryptotools/encoding"
 )
 
 func testExport(t *testing.T, client *Client, export *State) {

@@ -11,6 +11,7 @@ type Server struct {
 	privateKey group.Scalar
 	publicKey  group.Element
 	*oprf
+	nonceR []byte
 }
 
 func (s *Server) evaluate(blinded group.Element) group.Element {
@@ -18,15 +19,26 @@ func (s *Server) evaluate(blinded group.Element) group.Element {
 }
 
 func (s *Server) generateProof(blindedElements, evaluatedElements []group.Element) (proofC, proofS group.Scalar) {
-	a0, a1 := s.computeComposites(s.privateKey, s.publicKey, blindedElements, evaluatedElements)
+	encPks := lengthPrefixEncode(s.publicKey.Bytes())
+	a0, a1 := s.computeComposites(s.privateKey, encPks, blindedElements, evaluatedElements)
 
-	r := s.group.NewScalar().Random()
+	var r group.Scalar
+	if s.nonceR == nil {
+		r = s.group.NewScalar().Random()
+	} else {
+		var err error
+		r, err = s.group.NewScalar().Decode(s.nonceR)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	a2 := s.group.Base().Mult(r)
 	a3 := a0.Mult(r)
 
-	proofC = s.proofScalar(s.publicKey, a0, a1, a2, a3)
-	m := proofC.Mult(s.privateKey)
-	proofS = r.Sub(m)
+	proofC = s.proofScalar(encPks, a0, a1, a2, a3)
+	csk := proofC.Mult(s.privateKey)
+	proofS = r.Sub(csk)
 
 	return proofC, proofS
 }
@@ -68,18 +80,16 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte) (*Evaluation, error) {
 	}
 
 	if s.mode == Verifiable {
-		c, s := s.generateProof(blinded, ev.elements)
-		ev.proofC = c
-		ev.proofS = s
+		ev.proofC, ev.proofS = s.generateProof(blinded, ev.elements)
 	}
 
-	return ev.serialize(), nil
+	return ev.serialize(s.id), nil
 }
 
 // FullEvaluate reproduces the full PRF but without the blinding operations, using the client's input.
 // This should output the same digest as the client's Finalize() function.
 func (s *Server) FullEvaluate(input []byte) []byte {
-	p := s.group.HashToGroup(input)
+	p := s.group.HashToGroup(input, nil)
 	t := s.evaluate(p)
 
 	return s.hashTranscript(input, t.Bytes())
@@ -106,7 +116,7 @@ func (s *Server) VerifyFinalizeBatch(input, output [][]byte) bool {
 
 // PrivateKey returns the server's serialized private key.
 func (s *Server) PrivateKey() []byte {
-	return s.privateKey.Bytes()
+	return serializeScalar(s.privateKey, scalarLength(s.id))
 }
 
 // PublicKey returns the server's serialized public key.

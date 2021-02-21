@@ -83,7 +83,7 @@ type evaluation struct {
 }
 
 // serialize serializes the components of the evaluation into byte arrays to be exposed in API.
-func (e *evaluation) serialize() *Evaluation {
+func (e *evaluation) serialize(c Ciphersuite) *Evaluation {
 	ev := &Evaluation{
 		Elements: make([][]byte, len(e.elements)),
 	}
@@ -93,11 +93,11 @@ func (e *evaluation) serialize() *Evaluation {
 	}
 
 	if e.proofC != nil {
-		ev.ProofC = e.proofC.Bytes()
+		ev.ProofC = serializeScalar(e.proofC, scalarLength(c))
 	}
 
 	if e.proofS != nil {
-		ev.ProofS = e.proofS.Bytes()
+		ev.ProofS = serializeScalar(e.proofS, scalarLength(c))
 	}
 
 	return ev

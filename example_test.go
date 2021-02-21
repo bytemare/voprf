@@ -2,6 +2,7 @@ package voprf
 
 import (
 	"encoding/hex"
+
 	"github.com/bytemare/cryptotools/encoding"
 )
 

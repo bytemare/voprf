@@ -156,7 +156,7 @@ func (c *Client) initBlinding(length int) error {
 }
 
 func (c *Client) blindInput(input []byte, scalar group.Scalar) (group.Scalar, group.Element) {
-	p := c.group.HashToGroup(input)
+	p := c.group.HashToGroup(input, nil)
 
 	if c.blinding == Multiplicative {
 		if scalar == nil {
@@ -177,8 +177,8 @@ func (c *Client) blindInput(input []byte, scalar group.Scalar) (group.Scalar, gr
 
 func (c *Client) verifyProof(proofC, proofS group.Scalar, blindedElementList, evaluatedElementList []group.Element) bool {
 	publicKey := c.serverPublicKey
-
-	a0, a1 := c.computeComposites(nil, publicKey, blindedElementList, evaluatedElementList)
+	encPks := lengthPrefixEncode(publicKey.Bytes())
+	a0, a1 := c.computeComposites(nil, encPks, blindedElementList, evaluatedElementList)
 
 	ab := c.group.Base().Mult(proofS)
 	ap := publicKey.Mult(proofC)
@@ -187,7 +187,7 @@ func (c *Client) verifyProof(proofC, proofS group.Scalar, blindedElementList, ev
 	bm := a0.Mult(proofS)
 	bz := a1.Mult(proofC)
 	a3 := bm.Add(bz)
-	expectedC := c.proofScalar(publicKey, a0, a1, a2, a3)
+	expectedC := c.proofScalar(encPks, a0, a1, a2, a3)
 
 	return ctEqual(expectedC.Bytes(), proofC.Bytes())
 }

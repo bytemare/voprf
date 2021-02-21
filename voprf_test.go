@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,10 +24,10 @@ type test struct {
 	BlindedElement    [][]byte
 	EvaluationElement [][]byte
 	ProofC            []byte
+	NonceR            []byte
 	ProofS            []byte
 	Input             [][]byte
 	Output            [][]byte
-	UnblindedElement  [][]byte
 }
 
 type testVectors []vector
@@ -40,11 +39,11 @@ type testVector struct {
 	EvaluationElement string `json:"EvaluationElement"`
 	EvaluationProof   struct {
 		C string `json:"c,omitempty"`
+		R string `json:"r,omitempty"`
 		S string `json:"s,omitempty"`
 	} `json:"EvaluationProof,omitempty"`
-	Input            string `json:"Input"`
-	Output           string `json:"Output"`
-	UnblindedElement string `json:"UnblindedElement"`
+	Input  string `json:"Input"`
+	Output string `json:"Output"`
 }
 
 func decodeBatch(nb int, in string) ([][]byte, error) {
@@ -89,6 +88,11 @@ func (tv *testVector) Decode() (*test, error) {
 		return nil, fmt.Errorf(" ProofC decoding errored with %q", err)
 	}
 
+	nonceR, err := hex.DecodeString(tv.EvaluationProof.R)
+	if err != nil {
+		return nil, fmt.Errorf(" NonceR decoding errored with %q", err)
+	}
+
 	proofS, err := hex.DecodeString(tv.EvaluationProof.S)
 	if err != nil {
 		return nil, fmt.Errorf(" ProofS decoding errored with %q", err)
@@ -106,22 +110,16 @@ func (tv *testVector) Decode() (*test, error) {
 		return nil, fmt.Errorf(" Output decoding errored with %q", err)
 	}
 
-	unblinded, err := decodeBatch(tv.Batch, tv.UnblindedElement)
-	// unblinded, err := hex.DecodeString(tv.UnblindedElement)
-	if err != nil {
-		return nil, fmt.Errorf(" UnblindedElement decoding errored with %q", err)
-	}
-
 	return &test{
 		Batch:             tv.Batch,
 		Blind:             blind,
 		BlindedElement:    blinded,
 		EvaluationElement: evaluationElement,
 		ProofC:            proofC,
+		NonceR:            nonceR,
 		ProofS:            proofS,
 		Input:             input,
 		Output:            output,
-		UnblindedElement:  unblinded,
 	}, nil
 }
 
@@ -296,6 +294,7 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 
 	// Server evaluating
 	var ev *Evaluation
+	server.nonceR = test.NonceR
 	if test.Batch == 1 {
 		ev, err = server.Evaluate(test.BlindedElement[0])
 		if err != nil {
@@ -318,36 +317,12 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 
 	// Set proofs
 	if mode == Verifiable {
-		//if !assert.Equal(t, test.ProofC, ev.ProofC) {
-		//	t.Error("unexpected c proof")
-		//}
-
-		//if !assert.Equal(t, test.ProofS, ev.ProofS) {
-		//	t.Error("unexpected s proof")
-		//}
-		//ev.ProofC = test.ProofC
-		//ev.ProofS = test.ProofS
-	}
-
-	e, err := ev.deserialize(client.group)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Client unblinding
-	if test.Batch == 1 {
-		unblindedElement := client.unblind(e.elements[0], 0)
-
-		if !assert.Equal(t, test.UnblindedElement[0], unblindedElement.Bytes(), "unblinded value is not valid.") {
-			t.Fatal("not equal")
+		if !assert.Equal(t, test.ProofC, ev.ProofC) {
+			t.Error("unexpected c proof")
 		}
-	} else {
-		for i, ee := range e.elements {
-			u := client.unblind(ee, i)
 
-			if !assert.Equal(t, test.UnblindedElement[i], u.Bytes(), "unblinded value %d is not valid.", i) {
-				t.Fatal("not equal")
-			}
+		if !assert.Equal(t, test.ProofS, ev.ProofS) {
+			t.Errorf("unexpected s proof: %s", hex.EncodeToString(test.ProofS))
 		}
 	}
 
@@ -438,8 +413,6 @@ func (v vector) test(t *testing.T) {
 
 			// test protocol execution
 			testOPRF(t, mode, client, server, test)
-
-			log.Printf("Success for %v - %v\n", v.SuiteName, v.Mode)
 		})
 	}
 }
