@@ -418,7 +418,7 @@ func (v vector) test(t *testing.T) {
 }
 
 func TestVOPRF(t *testing.T) {
-	if err := filepath.Walk("test",
+	if err := filepath.Walk("test/draft-irtf-cfrg-voprf/poc/vectors",
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
