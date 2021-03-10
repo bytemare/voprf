@@ -12,6 +12,7 @@ var (
 	errNilProofC   = errors.New("c proof is nil or empty")
 	errNilProofS   = errors.New("s proof is nil or empty")
 	errNilPPB      = errors.New("preprocessBlind is nil while using additive blinding")
+	errInvalidNumElements = errors.New("invalid number of element ")
 )
 
 // Client represents the Client/Verifier party in a (V)OPRF protocol session,
@@ -175,21 +176,21 @@ func (c *Client) blindInput(input []byte, scalar group.Scalar) (group.Scalar, gr
 	return nil, p.Add(c.preprocessedBLind.blindedGenerator)
 }
 
-func (c *Client) verifyProof(proofC, proofS group.Scalar, blindedElementList, evaluatedElementList []group.Element) bool {
+func (c *Client) verifyProof(ev *evaluation) bool {
 	publicKey := c.serverPublicKey
 	encPks := lengthPrefixEncode(publicKey.Bytes())
-	a0, a1 := c.computeComposites(nil, encPks, blindedElementList, evaluatedElementList)
+	a0, a1 := c.computeComposites(nil, encPks, c.blindedElement, ev.elements)
 
-	ab := c.group.Base().Mult(proofS)
-	ap := publicKey.Mult(proofC)
+	ab := c.group.Base().Mult(ev.proofS)
+	ap := publicKey.Mult(ev.proofC)
 	a2 := ab.Add(ap)
 
-	bm := a0.Mult(proofS)
-	bz := a1.Mult(proofC)
+	bm := a0.Mult(ev.proofS)
+	bz := a1.Mult(ev.proofC)
 	a3 := bm.Add(bz)
 	expectedC := c.proofScalar(encPks, a0, a1, a2, a3)
 
-	return ctEqual(expectedC.Bytes(), proofC.Bytes())
+	return ctEqual(expectedC.Bytes(), ev.proofC.Bytes())
 }
 
 func (c *Client) innerBlind(input []byte, index int) {
@@ -285,6 +286,10 @@ func (c *Client) FinalizeBatch(e *Evaluation) ([][]byte, error) {
 		return nil, err
 	}
 
+	if len(ev.elements) != len(c.blindedElement) {
+		return nil, errInvalidNumElements
+	}
+
 	if c.mode == Verifiable {
 		if ev.proofC == nil {
 			return nil, errNilProofC
@@ -294,7 +299,7 @@ func (c *Client) FinalizeBatch(e *Evaluation) ([][]byte, error) {
 			return nil, errNilProofS
 		}
 
-		if !c.verifyProof(ev.proofC, ev.proofS, c.blindedElement, ev.elements) {
+		if !c.verifyProof(ev) {
 			return nil, errProofFailed
 		}
 	}
