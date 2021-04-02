@@ -192,8 +192,7 @@ func (o *oprf) new(mode Mode, blinding Blinding) *oprf {
 	o.mode = mode
 	o.blinding = blinding
 	o.contextString = contextString(mode, o.id)
-	h2gDST := o.dst(hash2groupDSTPrefix)
-	o.group = oprfToGroup[o.id].Get(h2gDST)
+	o.group = oprfToGroup[o.id].Get(nil)
 
 	return o
 }

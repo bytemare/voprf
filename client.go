@@ -157,7 +157,7 @@ func (c *Client) initBlinding(length int) error {
 }
 
 func (c *Client) blindInput(input []byte, scalar group.Scalar) (group.Scalar, group.Element) {
-	p := c.group.HashToGroup(input, nil)
+	p := c.HashToGroup(input)
 
 	if c.blinding == Multiplicative {
 		if scalar == nil {

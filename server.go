@@ -89,7 +89,7 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte) (*Evaluation, error) {
 // FullEvaluate reproduces the full PRF but without the blinding operations, using the client's input.
 // This should output the same digest as the client's Finalize() function.
 func (s *Server) FullEvaluate(input []byte) []byte {
-	p := s.group.HashToGroup(input, nil)
+	p := s.HashToGroup(input)
 	t := s.evaluate(p)
 
 	return s.hashTranscript(input, t.Bytes())

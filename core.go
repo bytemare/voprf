@@ -146,5 +146,5 @@ func (o *oprf) proofScalar(encPks []byte, a0, a1, a2, a3 group.Element) group.Sc
 	encDST := lengthPrefixEncode(challengeDST)
 	input := utils.Concatenate(0, encPks, encA0, encA1, encA2, encA3, encDST)
 
-	return o.group.HashToScalar(input, o.dst(hash2scalarDSTPrefix))
+	return o.HashToScalar(input)
 }
