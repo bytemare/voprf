@@ -205,12 +205,14 @@ func (o *oprf) DeriveKeyPair(seed []byte) (group.Scalar, group.Element) {
 
 // HashToGroup maps the input data to an element of the group.
 func (o *oprf) HashToGroup(data []byte) group.Element {
-	return o.group.HashToGroup(data, o.dst(hash2groupDSTPrefix))
+	// todo: nil dst for test, change to o.dst(hash2groupDSTPrefix)
+	return o.group.HashToGroup(data, nil)
 }
 
 // HashToScalar maps the input data to a scalar.
 func (o *oprf) HashToScalar(data []byte) group.Scalar {
-	return o.group.HashToScalar(data, o.dst(hash2scalarDSTPrefix))
+	// todo: nil dst for test, change to o.dst(hash2scalarDSTPrefix)
+	return o.group.HashToScalar(data, nil)
 }
 
 func (c Ciphersuite) client(mode Mode, blinding Blinding, blind *PreprocessedBlind) *Client {
