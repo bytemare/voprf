@@ -62,10 +62,10 @@ const (
 	protocol = "VOPRF06"
 
 	// hash2groupDSTPrefix is the DST prefix to use for HashToGroup operations.
-	hash2groupDSTPrefix = protocol + "-HashToGroup-"
+	hash2groupDSTPrefix = "HashToGroup-"
 
-	// hash2scalarDSTPrefix is the DST prefix to use for HashToGroup operations.
-	hash2scalarDSTPrefix = protocol + "-HashToScalar-"
+	// hash2scalarDSTPrefix is the DST prefix to use for HashToScalar operations.
+	hash2scalarDSTPrefix = "HashToScalar-"
 )
 
 var (
@@ -113,7 +113,7 @@ func preprocess(g group.Group, blind group.Scalar, pubKey []byte) (*Preprocessed
 
 	p := &ppb{
 		blindedGenerator: g.Base().Mult(blind),
-		blindedPubKey:    pub.Mult(blind),
+		blindedPubKey: pub.Mult(blind),
 	}
 
 	return p.serialize(), nil
@@ -196,6 +196,22 @@ func (o *oprf) new(mode Mode, blinding Blinding) *oprf {
 	o.group = oprfToGroup[o.id].Get(h2gDST)
 
 	return o
+}
+
+// DeriveKeyPair deterministically generates a private and public key pair from input seed.
+func (o *oprf) DeriveKeyPair(seed []byte) (group.Scalar, group.Element) {
+	s := o.HashToScalar(seed)
+	return s, o.group.Base().Mult(s)
+}
+
+// HashToGroup maps the input data to an element of the group.
+func (o *oprf) HashToGroup(data []byte) group.Element {
+	return o.group.HashToGroup(data, o.dst(hash2groupDSTPrefix))
+}
+
+// HashToScalar maps the input data to a scalar.
+func (o *oprf) HashToScalar(data []byte) group.Scalar {
+	return o.group.HashToScalar(data, o.dst(hash2scalarDSTPrefix))
 }
 
 func (c Ciphersuite) client(mode Mode, blinding Blinding, blind *PreprocessedBlind) *Client {
