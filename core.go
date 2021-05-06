@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	dstChallengePrefix = protocol + "-Challenge-"
-	dstCompositePrefix = protocol + "-Composite-"
-	dstFinalizePrefix  = protocol + "-Finalize-"
-	dstSeedPrefix      = protocol + "-Seed-"
+	dstChallengePrefix = version + "Challenge-"
+	dstCompositePrefix = version + "Composite-"
+	dstFinalizePrefix  = version + "Finalize-"
+	dstSeedPrefix      = version + "Seed-"
 
 	p256PointLength  = 33
 	p256ScalarLength = 32
@@ -79,7 +79,7 @@ func (o *oprf) ccScalar(encSeed []byte, index int, blindedElement, evaluatedElem
 		lengthPrefixEncode(evaluatedElement.Bytes()),
 		encCompositeDST)
 
-	return o.group.HashToScalar(input, o.dst(hash2scalarDSTPrefix))
+	return o.HashToScalar(input)
 }
 
 func (o *oprf) computeCompositesFast(encSeed, encCompositeDST []byte, privKey group.Scalar,

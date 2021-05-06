@@ -58,8 +58,8 @@ const (
 	sP384Sha512      = "P384Sha512"
 	sP521Sha512      = "P521Sha512"
 
-	// protocol is a string explicitly stating the protocol name.
-	protocol = "VOPRF06"
+	// version is a string explicitly stating the version name.
+	version = "VOPRF06-"
 
 	// hash2groupDSTPrefix is the DST prefix to use for HashToGroup operations.
 	hash2groupDSTPrefix = "HashToGroup-"
@@ -181,11 +181,23 @@ type oprf struct {
 }
 
 func contextString(mode Mode, id Ciphersuite) []byte {
-	return append(encoding.I2OSP(int(mode), 1), encoding.I2OSP(int(id), 2)...)
+	ctx := make([]byte, 0, len(version) + 1 + 2)
+	ctx = append(ctx, []byte(version)...)
+	ctx = append(ctx, encoding.I2OSP(int(mode), 1)...)
+	ctx = append(ctx, encoding.I2OSP(int(id), 2)...)
+	return ctx
 }
 
 func (o *oprf) dst(prefix string) []byte {
 	return append([]byte(prefix), o.contextString...)
+}
+
+func (o *oprf) groupDST() []byte {
+	return append([]byte(hash2groupDSTPrefix), o.contextString...)
+}
+
+func (o *oprf) scalarDST() []byte {
+	return append([]byte(hash2scalarDSTPrefix), o.contextString...)
 }
 
 func (o *oprf) new(mode Mode, blinding Blinding) *oprf {
@@ -206,13 +218,13 @@ func (o *oprf) DeriveKeyPair(seed []byte) (group.Scalar, group.Element) {
 // HashToGroup maps the input data to an element of the group.
 func (o *oprf) HashToGroup(data []byte) group.Element {
 	// todo: nil dst for test, change to o.dst(hash2groupDSTPrefix)
-	return o.group.HashToGroup(data, nil)
+	return o.group.HashToGroup(data, o.groupDST())
 }
 
 // HashToScalar maps the input data to a scalar.
 func (o *oprf) HashToScalar(data []byte) group.Scalar {
 	// todo: nil dst for test, change to o.dst(hash2scalarDSTPrefix)
-	return o.group.HashToScalar(data, nil)
+	return o.group.HashToScalar(data, o.scalarDST())
 }
 
 func (c Ciphersuite) client(mode Mode, blinding Blinding, blind *PreprocessedBlind) *Client {
