@@ -39,7 +39,7 @@ const (
 	RistrettoSha512 Ciphersuite = iota + 1
 
 	// Decaf448Sha512 is the OPRF cipher suite of the Decaf448 group and SHA-512.
-	Decaf448Sha512
+	decaf448Sha512
 
 	// P256Sha256 is the OPRF cipher suite of the NIST P-256 group and SHA-256.
 	P256Sha256
@@ -53,7 +53,7 @@ const (
 	maxID
 
 	sRistrettoSha512 = "RistrettoSha512"
-	sDecaf448Sha512  = "Decaf448Sha512"
+	//sDecaf448Sha512  = "Decaf448Sha512"
 	sP256Sha256      = "P256Sha256"
 	sP384Sha512      = "P384Sha512"
 	sP521Sha512      = "P521Sha512"
@@ -336,8 +336,8 @@ func (c Ciphersuite) String() string {
 	switch c {
 	case RistrettoSha512:
 		return sRistrettoSha512
-	case Decaf448Sha512:
-		return sDecaf448Sha512
+	//case Decaf448Sha512:
+	//	return sDecaf448Sha512
 	case P256Sha256:
 		return sP256Sha256
 	case P384Sha512:
@@ -351,7 +351,7 @@ func (c Ciphersuite) String() string {
 
 func init() {
 	RistrettoSha512.register(ciphersuite.Ristretto255Sha512, hash.SHA512)
-	Decaf448Sha512.register(ciphersuite.Curve448Sha512, hash.SHA512)
+	//Decaf448Sha512.register(ciphersuite.Curve448Sha512, hash.SHA512)
 	P256Sha256.register(ciphersuite.P256Sha256, hash.SHA256)
 	P384Sha512.register(ciphersuite.P384Sha512, hash.SHA512)
 	P521Sha512.register(ciphersuite.P521Sha512, hash.SHA512)

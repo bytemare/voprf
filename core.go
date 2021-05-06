@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	dstChallengePrefix = version + "Challenge-"
-	dstCompositePrefix = version + "Composite-"
-	dstFinalizePrefix  = version + "Finalize-"
-	dstSeedPrefix      = version + "Seed-"
+	dstChallengePrefix = "Challenge-"
+	dstCompositePrefix = "Composite-"
+	dstFinalizePrefix  = "Finalize-"
+	dstSeedPrefix      = "Seed-"
 
 	p256PointLength  = 33
 	p256ScalarLength = 32
@@ -26,8 +26,8 @@ func scalarLength(c Ciphersuite) int {
 	switch c {
 	case RistrettoSha512:
 		return 32
-	case Decaf448Sha512:
-		return 56
+	//case Decaf448Sha512:
+	//	return 56
 	case P256Sha256:
 		return p256ScalarLength
 	case P384Sha512:
@@ -43,8 +43,8 @@ func pointLength(c Ciphersuite) int {
 	switch c {
 	case RistrettoSha512:
 		return 32
-	case Decaf448Sha512:
-		return 56
+	//case Decaf448Sha512:
+	//	return 56
 	case P256Sha256:
 		return p256PointLength
 	case P384Sha512:
