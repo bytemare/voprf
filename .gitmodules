@@ -1,4 +1,0 @@
-
-[submodule "test/draft-irtf-cfrg-voprf"]
-	path = test/draft-irtf-cfrg-voprf
-	url = https://github.com/cfrg/draft-irtf-cfrg-voprf.git
