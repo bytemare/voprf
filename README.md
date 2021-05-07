@@ -166,6 +166,10 @@ OPRF are generally used in protocols like
 This package is just an implementation of the tremendous work and talent invested by researches and enthusiasts that care about your privacy and security.
 All merit goes to the (V)OPRF team.
 
+## Versioning
+
+[SemVer](http://semver.org/) is used for versioning. For the versions available, see the [tags on this repository](https://github.com/bytemare/voprf/tags).
+
 ## Contributing
 
 Please read [CONTRIBUTING.md](.github/CONTRIBUTING.md) for details on the code of conduct, and the process for submitting pull requests.
