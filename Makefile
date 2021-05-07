@@ -11,7 +11,8 @@ lint:
 get-module:
 	@echo "Getting submodule ..."
 	@git pull --recurse-submodules
-	@cd test/draft-irtf-cfrg-voprf && git fetch --all && git checkout 866a54cc1021390359e67d8a1b773e2d70f19067
+	@cd test/draft-irtf-cfrg-voprf
+	@git fetch --all && git checkout 866a54cc1021390359e67d8a1b773e2d70f19067
 
 .PHONY: test
 test: get-module
