@@ -39,7 +39,7 @@ const (
 	RistrettoSha512 Ciphersuite = iota + 1
 
 	// Decaf448Sha512 is the OPRF cipher suite of the Decaf448 group and SHA-512.
-	Decaf448Sha512
+	decaf448Sha512
 
 	// P256Sha256 is the OPRF cipher suite of the NIST P-256 group and SHA-256.
 	P256Sha256
@@ -192,7 +192,8 @@ func (o *oprf) new(mode Mode, blinding Blinding) *oprf {
 	o.mode = mode
 	o.blinding = blinding
 	o.contextString = contextString(mode, o.id)
-	o.group = oprfToGroup[o.id].Get(nil)
+	dst := append([]byte("VOPRF06-HashToGroup-"), o.contextString...)
+	o.group = oprfToGroup[o.id].Get(dst)
 
 	return o
 }
@@ -206,13 +207,15 @@ func (o *oprf) DeriveKeyPair(seed []byte) (group.Scalar, group.Element) {
 // HashToGroup maps the input data to an element of the group.
 func (o *oprf) HashToGroup(data []byte) group.Element {
 	// todo: nil dst for test, change to o.dst(hash2groupDSTPrefix)
-	return o.group.HashToGroup(data, nil)
+	dst := append([]byte("VOPRF06-HashToGroup-"), o.contextString...)
+	return o.group.HashToGroup(data, dst)
 }
 
 // HashToScalar maps the input data to a scalar.
 func (o *oprf) HashToScalar(data []byte) group.Scalar {
 	// todo: nil dst for test, change to o.dst(hash2scalarDSTPrefix)
-	return o.group.HashToScalar(data, nil)
+	dst := append([]byte("VOPRF06-HashToScalar-"), o.contextString...)
+	return o.group.HashToScalar(data, dst)
 }
 
 func (c Ciphersuite) client(mode Mode, blinding Blinding, blind *PreprocessedBlind) *Client {
@@ -326,8 +329,8 @@ func (c Ciphersuite) String() string {
 	switch c {
 	case RistrettoSha512:
 		return sRistrettoSha512
-	case Decaf448Sha512:
-		return sDecaf448Sha512
+	//case Decaf448Sha512:
+	//	return sDecaf448Sha512
 	case P256Sha256:
 		return sP256Sha256
 	case P384Sha512:
@@ -341,7 +344,7 @@ func (c Ciphersuite) String() string {
 
 func init() {
 	RistrettoSha512.register(ciphersuite.Ristretto255Sha512, hash.SHA512)
-	Decaf448Sha512.register(ciphersuite.Curve448Sha512, hash.SHA512)
+	//Decaf448Sha512.register(ciphersuite.Curve448Sha512, hash.SHA512)
 	P256Sha256.register(ciphersuite.P256Sha256, hash.SHA256)
 	P384Sha512.register(ciphersuite.P384Sha512, hash.SHA512)
 	P521Sha512.register(ciphersuite.P521Sha512, hash.SHA512)

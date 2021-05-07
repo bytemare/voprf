@@ -26,8 +26,8 @@ func scalarLength(c Ciphersuite) int {
 	switch c {
 	case RistrettoSha512:
 		return 32
-	case Decaf448Sha512:
-		return 56
+	//case Decaf448Sha512:
+	//	return 56
 	case P256Sha256:
 		return p256ScalarLength
 	case P384Sha512:
@@ -43,8 +43,8 @@ func pointLength(c Ciphersuite) int {
 	switch c {
 	case RistrettoSha512:
 		return 32
-	case Decaf448Sha512:
-		return 56
+	//case Decaf448Sha512:
+	//	return 56
 	case P256Sha256:
 		return p256PointLength
 	case P384Sha512:
@@ -79,7 +79,7 @@ func (o *oprf) ccScalar(encSeed []byte, index int, blindedElement, evaluatedElem
 		lengthPrefixEncode(evaluatedElement.Bytes()),
 		encCompositeDST)
 
-	return o.group.HashToScalar(input, o.dst(hash2scalarDSTPrefix))
+	return o.HashToScalar(input)
 }
 
 func (o *oprf) computeCompositesFast(encSeed, encCompositeDST []byte, privKey group.Scalar,

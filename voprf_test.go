@@ -418,7 +418,7 @@ func (v vector) test(t *testing.T) {
 }
 
 func TestVOPRF(t *testing.T) {
-	if err := filepath.Walk("test/draft-irtf-cfrg-voprf/poc/vectors",
+	if err := filepath.Walk("test/draft-irtf-cfrg-voprf/poc/vectors/",
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -440,6 +440,10 @@ func TestVOPRF(t *testing.T) {
 			}
 
 			for _, tv := range v {
+				if tv.SuiteName == "OPRF(decaf448, SHA-512)" {
+					continue
+				}
+
 				t.Run(tv.SuiteName, tv.test)
 			}
 			return nil
