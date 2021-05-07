@@ -10,7 +10,7 @@ lint:
 .PHONY: get-module
 get-module:
 	@echo "Getting submodule ..."
-	@git submodule update --init --recursive
+	@git pull --recurse-submodules
 	@cd test/draft-irtf-cfrg-voprf && git fetch --all && git checkout 866a54cc1021390359e67d8a1b773e2d70f19067
 
 .PHONY: test
