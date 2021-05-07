@@ -192,8 +192,8 @@ func (o *oprf) new(mode Mode, blinding Blinding) *oprf {
 	o.mode = mode
 	o.blinding = blinding
 	o.contextString = contextString(mode, o.id)
-	dst := append([]byte("VOPRF06-HashToGroup-"), o.contextString...)
-	o.group = oprfToGroup[o.id].Get(dst)
+	//dst := append([]byte("VOPRF06-HashToGroup-"), o.contextString...)
+	o.group = oprfToGroup[o.id].Get(nil)
 
 	return o
 }
@@ -214,8 +214,8 @@ func (o *oprf) HashToGroup(data []byte) group.Element {
 // HashToScalar maps the input data to a scalar.
 func (o *oprf) HashToScalar(data []byte) group.Scalar {
 	// todo: nil dst for test, change to o.dst(hash2scalarDSTPrefix)
-	dst := append([]byte("VOPRF06-HashToScalar-"), o.contextString...)
-	return o.group.HashToScalar(data, dst)
+	//dst := append([]byte("VOPRF06-HashToScalar-"), o.contextString...)
+	return o.group.HashToScalar(data, nil)
 }
 
 func (c Ciphersuite) client(mode Mode, blinding Blinding, blind *PreprocessedBlind) *Client {

@@ -79,7 +79,7 @@ func (o *oprf) ccScalar(encSeed []byte, index int, blindedElement, evaluatedElem
 		lengthPrefixEncode(evaluatedElement.Bytes()),
 		encCompositeDST)
 
-	return o.HashToScalar(input)
+	return o.group.HashToScalar(input, append([]byte("VOPRF06-HashToScalar-"), o.contextString...))
 }
 
 func (o *oprf) computeCompositesFast(encSeed, encCompositeDST []byte, privKey group.Scalar,
@@ -146,5 +146,5 @@ func (o *oprf) proofScalar(encPks []byte, a0, a1, a2, a3 group.Element) group.Sc
 	encDST := lengthPrefixEncode(challengeDST)
 	input := utils.Concatenate(0, encPks, encA0, encA1, encA2, encA3, encDST)
 
-	return o.HashToScalar(input)
+	return o.group.HashToScalar(input, append([]byte("VOPRF06-HashToScalar-"), o.contextString...))
 }
