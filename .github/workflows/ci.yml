@@ -34,11 +34,11 @@ jobs:
           go-version: ${{ matrix.GOVER }}
 
       # Linting
-      - name: Linting
-        uses: golangci/golangci-lint-action@v2
-        with:
-          version: latest
-          args: --config=./.github/.golangci.yml ./...
+      #- name: Linting
+      #  uses: golangci/golangci-lint-action@v2
+      #  with:
+      #    version: latest
+      #    args: --config=./.github/.golangci.yml ./...
 
       # CodeQL
       - name: Initialize CodeQL
