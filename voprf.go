@@ -171,7 +171,8 @@ type KeyPair struct {
 
 // KeyGen returns a fresh KeyPair for the given cipher suite.
 func (c Ciphersuite) KeyGen() *KeyPair {
-	g := c.Group().Get([]byte(hash2groupDSTPrefix))
+	//g := c.Group().Get([]byte(hash2groupDSTPrefix))
+	g := c.Group().Get()
 	sk := g.NewScalar().Random()
 	pk := g.Base().Mult(sk)
 
@@ -214,7 +215,7 @@ func (o *oprf) new(mode Mode, blinding Blinding) *oprf {
 	o.mode = mode
 	o.blinding = blinding
 	o.contextString = contextString(mode, o.id)
-	o.group = oprfToGroup[o.id].Get(nil)
+	o.group = oprfToGroup[o.id].Get()
 
 	return o
 }
