@@ -9,7 +9,7 @@ Package voprf provides abstracted access to Oblivious Pseudorandom Functions (OP
 
 This implementation supports the base and verifiable modes, and can be used with multiplicative and additive blinding.
 
-This work in progress implements https://tools.ietf.org/html/draft-irtf-cfrg-voprf.
+This work in progress implements v07 of https://tools.ietf.org/html/draft-irtf-cfrg-voprf.
 
 ## OPRF
 
@@ -99,18 +99,18 @@ vServer := voprf.Ristretto255.VerifiableServer(privateKeyBytes)
 
 ### Client
 
-The client can be instantiated in one of 4 ways using the  `Client()` and `ClientAdditive()` functions, depending on the setup
+The client can be instantiated in one of 3 ways using the  `Client()` and `ClientAdditive()` functions, depending on the setup
 
 |   | Multiplicative | Additive |
 |:-------------:|:-------------:|:-------------:|
 | Base | Client(nil) | ClientAdditive(nil, ppb) |
-| Verifiable | Client(pk)| ClientAdditive(pk, ppb)|
+| Verifiable | not supported | ClientAdditive(pk, ppb)|
 
 where ```pk``` is the server's public key, and ```ppb``` the *pre-processed blind*.
 
 #### When and why use the multiplicative or additive blinding ?
 
-Additive blinding is an optimisation over the multiplicative one in offline pre-processing values that will be used when blinding.
+Additive blinding is an optimisation in the blinding mechanism compared to the multiplicative. It consists in offline pre-processing values that will be used when blinding.
 This can be of advantage if the client has the ability (i.e. long-term memory) to securely retain these sensitive values. 
 
 #### Preprocessing values for additive blinding
