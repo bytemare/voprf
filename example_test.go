@@ -2,7 +2,6 @@ package voprf
 
 import (
 	"encoding/hex"
-
 	"github.com/bytemare/cryptotools/encoding"
 )
 
@@ -42,10 +41,7 @@ func ExampleBaseMultiplicativeClient() {
 	enc := encoding.JSON
 
 	// Set up a new client. Not indicating a server public key indicates we don't use the verifiable mode.
-	client, err := RistrettoSha512.Client(nil)
-	if err != nil {
-		panic(err)
-	}
+	client := RistrettoSha512.Client()
 
 	// The client blinds the initial input, and sends this to the server.
 	blinded := client.Blind(input)
@@ -67,46 +63,13 @@ func ExampleBaseMultiplicativeClient() {
 	// Output:
 }
 
-func ExampleVerifiableMultiplicativeClient() {
-	input := []byte("input")
-	serverPubKey, _ := hex.DecodeString("066c39841db2ca3c2e83e251e71b619013674149692ca2ab41d1b33a1a4fff38")
-	enc := encoding.JSON
-
-	// Set up a new client. Indicating a server public key indicates we use the verifiable mode.
-	client, err := RistrettoSha512.Client(serverPubKey)
-	if err != nil {
-		panic(err)
-	}
-
-	// The client blinds the initial input, and sends this to the server.
-	blinded := client.Blind(input)
-
-	// Exchange with the server is not covered here. The following call is to mock an exchange with a server.
-	ev := exchangeWithServer(blinded, false, enc)
-
-	// The client needs to decode the evaluation to finalize the process.
-	eval, err := DecodeEvaluation(ev, enc)
-	if err != nil {
-		panic(err)
-	}
-
-	// The client finalizes the protocol execution by reverting the blinding and hashing the protocol transcript.
-	// If proof verification fails, an error is returned.
-	output, err := client.Finalize(eval)
-	if output == nil || err != nil {
-		panic(err)
-	}
-	// Output:
-}
-
-//func ExampleVerifiableAdditiveClient() {
+//func ExampleBaseAdditiveClient() {
 //	input := []byte("input")
-//	info := []byte("some app info")
 //	serverPubKey, _ := hex.DecodeString("066c39841db2ca3c2e83e251e71b619013674149692ca2ab41d1b33a1a4fff38")
 //	enc := encoding.JSON
 //
 //	// The client preprocesses some values given the server's public key,
-//	// and should store it and retrieve it when needed.
+//	// and should store it to retrieve it when needed.
 //	preprocessed, err := RistrettoSha512.Preprocess(serverPubKey)
 //	if err != nil {
 //		panic(err)
@@ -126,6 +89,62 @@ func ExampleVerifiableMultiplicativeClient() {
 //
 //	// Instantiate a new client with the preprocessed values.
 //	// (Note that a nil public key here will switch in the base mode)
+//	client, err := RistrettoSha512.ClientAdditive(nil, decodedPPB)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	// The client blinds the initial input, and sends this to the server.
+//	blinded := client.Blind(input)
+//
+//	log.Printf("Blinding : %v\n", client.blinding)
+//
+//	// Exchange with the server is not covered here. The following call is to mock an exchange with a server.
+//	ev := exchangeWithServer(blinded, false, enc)
+//
+//	log.Printf("Changed Blinding : %v\n", client.blinding)
+//
+//	// The client needs to decode the evaluation to finalize the process.
+//	eval, err := DecodeEvaluation(ev, enc)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	// The client finalizes the protocol execution by reverting the blinding and hashing the protocol transcript.
+//	output, err := client.Finalize(eval)
+//	if output == nil || err != nil {
+//		panic(err)
+//	}
+//	// Output:
+//}
+//
+//func ExampleVerifiableClient() {
+//	input := []byte("input")
+//	serverPubKey, _ := hex.DecodeString("066c39841db2ca3c2e83e251e71b619013674149692ca2ab41d1b33a1a4fff38")
+//	enc := encoding.JSON
+//
+//	// The client preprocesses some values given the server's public key,
+//	// and should store it to retrieve it when needed.
+//	preprocessed, err := RistrettoSha512.Preprocess(serverPubKey)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	// encode the preprocessed values for storage, and store it.
+//	encoded, err := preprocessed.Encode(enc)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	// Upon retrieval, decode/restore it.
+//	decodedPPB, err := DecodePreprocessedBlind(encoded, enc)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	// Instantiate a new client with the preprocessed values.
+//	// (Note that a nil public key here will switch in the base mode)
+//	log.Printf("pubkey %v", serverPubKey)
 //	client, err := RistrettoSha512.ClientAdditive(serverPubKey, decodedPPB)
 //	if err != nil {
 //		panic(err)
@@ -149,7 +168,7 @@ func ExampleVerifiableMultiplicativeClient() {
 //
 //	// The client finalizes the protocol execution by reverting the blinding and hashing the protocol transcript.
 //	// If proof verification fails, an error is returned.
-//	output, err := client.Finalize(eval, info)
+//	output, err := client.Finalize(eval)
 //	if output == nil || err != nil {
 //		panic(err)
 //	}

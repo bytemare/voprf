@@ -65,6 +65,30 @@ func decodeBatch(nb int, in string) ([][]byte, error) {
 	return out, nil
 }
 
+func (t *test) Verify(suite Ciphersuite) error {
+	g := suite.Group().Get(nil)
+
+	for i, b := range t.Blind {
+		if _, err := g.NewScalar().Decode(b); err != nil {
+			return fmt.Errorf("blind %d decoding: %w", i, err)
+		}
+	}
+
+	for i, b := range t.BlindedElement {
+		if _, err := g.NewElement().Decode(b); err != nil {
+			return fmt.Errorf("blinded element %d decoding: %w", i, err)
+		}
+	}
+
+	for i, b := range t.EvaluationElement {
+		if _, err := g.NewElement().Decode(b); err != nil {
+			return fmt.Errorf("evaluation element %d decoding: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
 func (tv *testVector) Decode() (*test, error) {
 	blind, err := decodeBatch(tv.Batch, tv.Blind)
 	// blind, err := hex.DecodeString(tv.Blind)
@@ -179,8 +203,8 @@ func (v vector) checkParams(t *testing.T) {
 	}
 }
 
-func getPreprocessedBlind(c Ciphersuite, serverPublicKey []byte) (*PreprocessedBlind, error) {
-	preprocessed, err := c.Preprocess(serverPublicKey)
+func getPreprocessedBlind(c Ciphersuite, serverPublicKey []byte, blinds [][]byte) (*PreprocessedBlind, error) {
+	preprocessed, err := c.PreprocessWithBlinds(blinds, serverPublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("preprocess: %w", err)
 	}
@@ -198,7 +222,7 @@ func getPreprocessedBlind(c Ciphersuite, serverPublicKey []byte) (*PreprocessedB
 	return decoded, nil
 }
 
-func getClient(c Ciphersuite, mode Mode, blinding Blinding, serverPublicKey []byte) (*Client, error) {
+func getClient(c Ciphersuite, mode Mode, blinding Blinding, blinds [][]byte, serverPublicKey []byte) (*Client, error) {
 	var verifiablePubKey []byte
 
 	if mode == Verifiable {
@@ -207,9 +231,9 @@ func getClient(c Ciphersuite, mode Mode, blinding Blinding, serverPublicKey []by
 
 	switch blinding {
 	case Multiplicative:
-		return c.Client(verifiablePubKey)
+		return c.Client(), nil
 	case Additive:
-		p, err := getPreprocessedBlind(c, serverPublicKey)
+		p, err := getPreprocessedBlind(c, serverPublicKey, blinds)
 		if err != nil {
 			return nil, err
 		}
@@ -251,16 +275,21 @@ func testBlindBatch(t *testing.T, client *Client, inputs, blinds, outputs [][]by
 		t.Fatal(err)
 	}
 
-	for i, b := range blinds {
-		s, err := client.group.NewScalar().Decode(b)
-		if err != nil {
-			t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", client.oprf.id, err))
-		}
+	//for i, b := range blinds {
+	//	s, err := client.group.NewScalar().Decode(b)
+	//	if err != nil {
+	//		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", client.oprf.id, err))
+	//	}
+	//
+	//	client.blind[i] = s
+	//}
 
-		client.blind[i] = s
-	}
+	//_, blinded, err := client.BlindBatch(inputs)
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
 
-	_, blinded, err := client.BlindBatch(inputs)
+	blinded, err := client.BlindBatchWithBlinds(blinds, inputs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,10 +407,10 @@ func (v vector) test(t *testing.T) {
 		serverPublicKey = pksm
 	}
 
-	//dst, err := hex.DecodeString(v.DST)
-	//if err != nil {
-	//	t.Fatalf("hex decoding errored with %q", err)
-	//}
+	dst, err := hex.DecodeString(v.DST)
+	if err != nil {
+		t.Fatalf("hex decoding errored with %q", err)
+	}
 
 	// Test Multiplicative Mode
 	for i, tv := range v.Vectors {
@@ -391,25 +420,38 @@ func (v vector) test(t *testing.T) {
 				t.Fatal(fmt.Sprintf("batches : %v Failed %v\n", tv.Batch, err))
 			}
 
+			if err := test.Verify(suite); err != nil {
+				t.Fatal(err)
+			}
+
 			// Set up a new server.
 			server, err := getServer(suite, mode, privKey)
 			if err != nil {
 				t.Fatalf("failed on setting up server %q\nvector value (%d) %v\ndecoded (%d) %v\n", err, len(v.SkSm), v.SkSm, len(privKey), privKey)
 			}
 
-			//if !assert.Equal(t, string(dst), server.group.DST(), "GroupDST output is not valid.") {
-			//	t.Fatal("not equal")
-			//}
+			if !assert.Equal(t, string(dst), string(server.dst(hash2groupDSTPrefix)), "GroupDST output is not valid.") {
+				t.Fatal("DST not equal")
+			}
 
 			// Set up a new client.
-			client, err := getClient(suite, mode, Multiplicative, serverPublicKey)
+			var m Blinding
+			var blinds [][]byte
+			if mode == Base {
+				m = Multiplicative
+			} else {
+				m = Additive
+				blinds = test.Blind
+			}
+
+			client, err := getClient(suite, mode, m, blinds, serverPublicKey)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			//if !assert.Equal(t, string(dst), client.group.DST(), "GroupDST output is not valid.") {
-			//	t.Fatal("not equal")
-			//}
+			if !assert.Equal(t, string(dst), string(client.dst(hash2groupDSTPrefix)), "GroupDST output is not valid.") {
+				t.Fatal("DST not equal")
+			}
 
 			// test protocol execution
 			testOPRF(t, mode, client, server, test)
@@ -440,7 +482,7 @@ func TestVOPRF(t *testing.T) {
 			}
 
 			for _, tv := range v {
-				if tv.SuiteName == "OPRF(decaf448, SHA-512)" {
+				if tv.SuiteName == "OPRF(decaf448, SHAKE-256)" {
 					continue
 				}
 

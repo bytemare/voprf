@@ -11,7 +11,7 @@ var (
 	errArrayLength = errors.New("blinding init failed, non-nil array of incompatible length")
 	errNilProofC   = errors.New("c proof is nil or empty")
 	errNilProofS   = errors.New("s proof is nil or empty")
-	errNilPPB      = errors.New("preprocessBlind is nil while using additive blinding")
+	//errNilPPB      = errors.New("preprocessBlind is nil while using additive blinding")
 	errInvalidNumElements = errors.New("invalid number of element ")
 )
 
@@ -156,25 +156,41 @@ func (c *Client) initBlinding(length int) error {
 	return nil
 }
 
-func (c *Client) blindInput(input []byte, scalar group.Scalar) (group.Scalar, group.Element) {
+func (c *Client) blindMult(input []byte, scalar group.Scalar) (group.Scalar, group.Element) {
+	if scalar == nil {
+		scalar = c.group.NewScalar().Random()
+	}
+
 	p := c.HashToGroup(input)
+	m := p.Mult(scalar)
 
-	if c.blinding == Multiplicative {
-		if scalar == nil {
-			scalar = c.group.NewScalar().Random()
-		}
-
-		m := p.Mult(scalar)
-
-		return scalar, m
-	}
-
-	if c.preprocessedBLind == nil {
-		panic(errNilPPB)
-	}
-
-	return nil, p.Add(c.preprocessedBLind.blindedGenerator)
+	return scalar, m
 }
+
+func (c *Client) blindAdd(input []byte, blind group.Element) group.Element {
+	p := c.HashToGroup(input)
+	return p.Add(blind)
+}
+
+//func (c *Client) blindInput(input []byte, scalar group.Scalar) (group.Scalar, group.Element) {
+//	p := c.HashToGroup(input)
+//
+//	if c.blinding == Multiplicative {
+//		if scalar == nil {
+//			scalar = c.group.NewScalar().Random()
+//		}
+//
+//		m := p.Mult(scalar)
+//
+//		return scalar, m
+//	}
+//
+//	if c.preprocessedBLind == nil {
+//		panic(errNilPPB)
+//	}
+//
+//	return nil, p.Add(c.preprocessedBLind.blindedGenerator)
+//}
 
 func (c *Client) verifyProof(ev *evaluation) bool {
 	publicKey := c.serverPublicKey
@@ -195,7 +211,13 @@ func (c *Client) verifyProof(ev *evaluation) bool {
 
 func (c *Client) innerBlind(input []byte, index int) {
 	c.input[index] = input
-	c.blind[index], c.blindedElement[index] = c.blindInput(input, c.blind[index])
+
+	switch c.blinding {
+	case Multiplicative:
+		c.blind[index], c.blindedElement[index] = c.blindMult(input, c.blind[index])
+	case Additive:
+		c.blindedElement[index] = c.blindAdd(input, c.preprocessedBLind.blindedGenerators[index])
+	}
 }
 
 // Blind blinds, or masks, the input with a preset or new random blinding element.
@@ -211,7 +233,7 @@ func (c *Client) Blind(input []byte) []byte {
 
 // BlindBatch allows blinding of batched input. If internal blinds are not set, new ones are created. In either case,
 // the blinds are returned, and can safely be ignored if not needed externally. Subsequent calls on unblinding functions
-// will automatically the internal blinds, unless specified otherwise through unblindBatchWithBlinds().
+// will automatically use the internal blinds, unless specified otherwise through unblindBatchWithBlinds().
 func (c *Client) BlindBatch(input [][]byte) (blinds, blindedElements [][]byte, err error) {
 	if err := c.initBlinding(len(input)); err != nil {
 		return nil, nil, err
@@ -222,7 +244,11 @@ func (c *Client) BlindBatch(input [][]byte) (blinds, blindedElements [][]byte, e
 
 	for i, in := range input {
 		c.innerBlind(in, i)
-		blinds[i] = c.blind[i].Bytes()
+		// Only keep the blinds in a multiplicative mode
+		if c.blind[i] != nil {
+			blinds[i] = c.blind[i].Bytes()
+		}
+
 		blindedElements[i] = c.blindedElement[i].Bytes()
 	}
 
@@ -248,7 +274,8 @@ func (c *Client) BlindBatchWithBlinds(blinds, input [][]byte) ([][]byte, error) 
 		}
 
 		c.input[i] = input[i]
-		c.blind[i], c.blindedElement[i] = c.blindInput(input[i], s)
+		c.blind[i] = s
+		c.innerBlind(input[i], i)
 		blindedElements[i] = c.blindedElement[i].Bytes()
 	}
 
@@ -260,7 +287,7 @@ func (c *Client) unblind(evaluated group.Element, index int) group.Element {
 		return evaluated.InvertMult(c.blind[index])
 	}
 
-	return evaluated.Sub(c.preprocessedBLind.blindedPubKey)
+	return evaluated.Sub(c.preprocessedBLind.blindedPubKeys[index])
 }
 
 // Finalize finalizes the protocol execution by verifying the proof if necessary,

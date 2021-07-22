@@ -9,8 +9,8 @@ import (
 
 // PreprocessedBlind holds the blinding values used in additive blinding.
 type PreprocessedBlind struct {
-	BlindedGenerator []byte `json:"g"`
-	BlindedPubKey    []byte `json:"p"`
+	BlindedGenerators [][]byte `json:"g"`
+	BlindedPubKeys    [][]byte `json:"p"`
 }
 
 // DecodePreprocessedBlind decodes the encoded input preprocessed values and returns a pointer to an initialised
@@ -44,22 +44,29 @@ func (p *PreprocessedBlind) deserialize(g group.Group) (*ppb, error) {
 
 	pp := &ppb{}
 
-	if p.BlindedGenerator == nil {
+	if p.BlindedGenerators == nil {
 		return nil, errPPNilGenerator
 	}
 
-	pp.blindedGenerator, err = g.NewElement().Decode(p.BlindedGenerator)
-	if err != nil {
-		return nil, err
-	}
-
-	if p.BlindedPubKey == nil {
+	if p.BlindedPubKeys == nil {
 		return nil, errPPNilPubKey
 	}
 
-	pp.blindedPubKey, err = g.NewElement().Decode(p.BlindedPubKey)
-	if err != nil {
-		return nil, err
+	pp.blindedGenerators = make([]group.Element, len(p.BlindedGenerators))
+	pp.blindedPubKeys = make([]group.Element, len(p.BlindedPubKeys))
+
+	for i, bg := range p.BlindedGenerators {
+		pp.blindedGenerators[i], err = g.NewElement().Decode(bg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for i, bp := range p.BlindedPubKeys {
+		pp.blindedPubKeys[i], err = g.NewElement().Decode(bp)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return pp, nil
@@ -67,13 +74,23 @@ func (p *PreprocessedBlind) deserialize(g group.Group) (*ppb, error) {
 
 // ppb groups pre-computed values to be used as blinding by the Client/Verifier.
 type ppb struct {
-	blindedGenerator group.Element
-	blindedPubKey    group.Element
+	blindedGenerators []group.Element
+	blindedPubKeys    []group.Element
 }
 
 func (p *ppb) serialize() *PreprocessedBlind {
-	return &PreprocessedBlind{
-		BlindedGenerator: p.blindedGenerator.Bytes(),
-		BlindedPubKey:    p.blindedPubKey.Bytes(),
+	pb := &PreprocessedBlind{
+		BlindedGenerators: make([][]byte, len(p.blindedGenerators)),
+		BlindedPubKeys:    make([][]byte, len(p.blindedPubKeys)),
 	}
+
+	for i, bg := range p.blindedGenerators {
+		pb.BlindedGenerators[i] = bg.Bytes()
+	}
+
+	for i, bp := range p.blindedPubKeys {
+		pb.BlindedPubKeys[i] = bp.Bytes()
+	}
+
+	return pb
 }
