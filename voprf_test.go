@@ -66,7 +66,7 @@ func decodeBatch(nb int, in string) ([][]byte, error) {
 }
 
 func (t *test) Verify(suite Ciphersuite) error {
-	g := suite.Group().Get(nil)
+	g := suite.Group().Get()
 
 	for i, b := range t.Blind {
 		if _, err := g.NewScalar().Decode(b); err != nil {
