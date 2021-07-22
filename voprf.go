@@ -171,7 +171,6 @@ type KeyPair struct {
 
 // KeyGen returns a fresh KeyPair for the given cipher suite.
 func (c Ciphersuite) KeyGen() *KeyPair {
-	//g := c.Group().Get([]byte(hash2groupDSTPrefix))
 	g := c.Group().Get()
 	sk := g.NewScalar().Random()
 	pk := g.Base().Mult(sk)
