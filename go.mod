@@ -3,8 +3,7 @@ module github.com/bytemare/voprf
 go 1.15
 
 require (
-	github.com/armfazh/h2c-go-ref v0.0.0-20210215173008-07e12a6f8e0d // indirect
-	github.com/bytemare/cryptotools v0.0.0-20210722203644-75177be40388
+	github.com/bytemare/cryptotools v0.0.0-20210723114621-9257eb2446cf
 	github.com/stretchr/testify v1.7.0
 	github.com/vmihailenco/msgpack/v5 v5.3.1 // indirect
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect

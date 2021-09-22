@@ -13,7 +13,7 @@ type PreprocessedBlind struct {
 	BlindedPubKeys    [][]byte `json:"p"`
 }
 
-// DecodePreprocessedBlind decodes the encoded input preprocessed values and returns a pointer to an initialised
+// DecodePreprocessedBlind decodes the encoded input preprocessed values and returns a pointer to an initialized
 // PreprocessedBlind structure.
 func DecodePreprocessedBlind(input []byte, enc encoding.Encoding) (*PreprocessedBlind, error) {
 	p, err := enc.Decode(input, &PreprocessedBlind{})

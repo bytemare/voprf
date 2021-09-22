@@ -11,7 +11,7 @@ var (
 	errArrayLength = errors.New("blinding init failed, non-nil array of incompatible length")
 	errNilProofC   = errors.New("c proof is nil or empty")
 	errNilProofS   = errors.New("s proof is nil or empty")
-	//errNilPPB      = errors.New("preprocessBlind is nil while using additive blinding")
+	// errNilPPB      = errors.New("preprocessBlind is nil while using additive blinding").
 	errInvalidNumElements = errors.New("invalid number of element ")
 )
 
@@ -48,7 +48,7 @@ func (c *Client) Export() *State {
 	}
 
 	if c.serverPublicKey != nil {
-		s.ServerPublicKey = c.serverPublicKey.Bytes()
+		s.ServerPublicKey = serializePoint(c.serverPublicKey, pointLength(c.id))
 	}
 
 	if len(c.input) != len(c.blind) {
@@ -62,8 +62,8 @@ func (c *Client) Export() *State {
 	for i := 0; i < len(c.input); i++ {
 		s.Input[i] = make([]byte, len(c.input[i]))
 		copy(s.Input[i], c.input[i])
-		s.Blind[i] = c.blind[i].Bytes()
-		s.Blinded[i] = c.blindedElement[i].Bytes()
+		s.Blind[i] = serializeScalar(c.blind[i], pointLength(c.id))
+		s.Blinded[i] = serializePoint(c.blindedElement[i], pointLength(c.id))
 	}
 
 	if c.preprocessedBLind != nil {
@@ -228,7 +228,7 @@ func (c *Client) Blind(input []byte) []byte {
 
 	c.innerBlind(input, 0)
 
-	return c.blindedElement[0].Bytes()
+	return serializePoint(c.blindedElement[0], pointLength(c.id))
 }
 
 // BlindBatch allows blinding of batched input. If internal blinds are not set, new ones are created. In either case,
@@ -246,13 +246,13 @@ func (c *Client) BlindBatch(input [][]byte) (blinds, blindedElements [][]byte, e
 		c.innerBlind(in, i)
 		// Only keep the blinds in a multiplicative mode
 		if c.blind[i] != nil {
-			blinds[i] = c.blind[i].Bytes()
+			blinds[i] = serializeScalar(c.blind[i], scalarLength(c.id))
 		}
 
-		blindedElements[i] = c.blindedElement[i].Bytes()
+		blindedElements[i] = serializePoint(c.blindedElement[i], pointLength(c.id))
 	}
 
-	return blindedElements, blindedElements, nil
+	return blinds, blindedElements, nil
 }
 
 // BlindBatchWithBlinds enables blinding batches while specifying which blinds to use.
@@ -276,7 +276,7 @@ func (c *Client) BlindBatchWithBlinds(blinds, input [][]byte) ([][]byte, error) 
 		c.input[i] = input[i]
 		c.blind[i] = s
 		c.innerBlind(input[i], i)
-		blindedElements[i] = c.blindedElement[i].Bytes()
+		blindedElements[i] = serializePoint(c.blindedElement[i], pointLength(c.id))
 	}
 
 	return blindedElements, nil

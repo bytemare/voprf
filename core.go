@@ -26,7 +26,7 @@ func scalarLength(c Ciphersuite) int {
 	switch c {
 	case RistrettoSha512:
 		return 32
-	//case Decaf448Sha512:
+	// case Decaf448Sha512:
 	//	return 56
 	case P256Sha256:
 		return p256ScalarLength
@@ -43,7 +43,7 @@ func pointLength(c Ciphersuite) int {
 	switch c {
 	case RistrettoSha512:
 		return 32
-	//case Decaf448Sha512:
+	// case Decaf448Sha512:
 	//	return 56
 	case P256Sha256:
 		return p256PointLength
@@ -65,6 +65,16 @@ func serializeScalar(s group.Scalar, length int) []byte {
 	return e
 }
 
+func serializePoint(e group.Element, length int) []byte {
+	p := e.Bytes()
+
+	for len(p) < length {
+		p = append([]byte{0x00}, p...)
+	}
+
+	return p
+}
+
 func lengthPrefixEncode(input []byte) []byte {
 	return append(encoding.I2OSP(len(input), 2), input...)
 }
@@ -75,8 +85,8 @@ func ctEqual(a, b []byte) bool {
 
 func (o *oprf) ccScalar(encSeed []byte, index int, blindedElement, evaluatedElement group.Element, encCompositeDST []byte) group.Scalar {
 	input := utils.Concatenate(0, encSeed, encoding.I2OSP(index, 2),
-		lengthPrefixEncode(blindedElement.Bytes()),
-		lengthPrefixEncode(evaluatedElement.Bytes()),
+		lengthPrefixEncode(serializePoint(blindedElement, pointLength(o.id))),
+		lengthPrefixEncode(serializePoint(evaluatedElement, pointLength(o.id))),
 		encCompositeDST)
 
 	return o.HashToScalar(input)

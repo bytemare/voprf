@@ -171,9 +171,8 @@ type KeyPair struct {
 
 // KeyGen returns a fresh KeyPair for the given cipher suite.
 func (c Ciphersuite) KeyGen() *KeyPair {
-	g := c.Group().Get()
-	sk := g.NewScalar().Random()
-	pk := g.Base().Mult(sk)
+	sk := c.Group().NewScalar().Random()
+	pk := c.Group().Base().Mult(sk)
 
 	return &KeyPair{
 		ID:        c,
@@ -214,7 +213,7 @@ func (o *oprf) new(mode Mode, blinding Blinding) *oprf {
 	o.mode = mode
 	o.blinding = blinding
 	o.contextString = contextString(mode, o.id)
-	o.group = oprfToGroup[o.id].Get()
+	o.group = oprfToGroup[o.id]
 
 	return o
 }
@@ -336,7 +335,7 @@ func (c Ciphersuite) String() string {
 	switch c {
 	case RistrettoSha512:
 		return sRistrettoSha512
-	//case Decaf448Sha512:
+	// case Decaf448Sha512:
 	//	return sDecaf448Sha512
 	case P256Sha256:
 		return sP256Sha256
@@ -351,7 +350,7 @@ func (c Ciphersuite) String() string {
 
 func init() {
 	RistrettoSha512.register(ciphersuite.Ristretto255Sha512, hash.SHA512)
-	//Decaf448Sha512.register(ciphersuite.Curve448Sha512, hash.SHA512)
+	// Decaf448Sha512.register(ciphersuite.Curve448Sha512, hash.SHA512)
 	P256Sha256.register(ciphersuite.P256Sha256, hash.SHA256)
 	P384Sha512.register(ciphersuite.P384Sha512, hash.SHA512)
 	P521Sha512.register(ciphersuite.P521Sha512, hash.SHA512)

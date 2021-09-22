@@ -7,7 +7,7 @@ import (
 	"github.com/bytemare/cryptotools/group"
 )
 
-// Evaluation holds the serialized evaluated elements and serialised proof.
+// Evaluation holds the serialized evaluated elements and serialized proof.
 type Evaluation struct {
 	// Elements represents the unique serialization of an Elements
 	Elements [][]byte `json:"e"`
