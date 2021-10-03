@@ -2,27 +2,23 @@ package voprf
 
 import (
 	"fmt"
-
-	"github.com/bytemare/cryptotools/group"
+	"github.com/bytemare/crypto/group"
 )
 
 // Server holds the (V)OPRF prover data.
 type Server struct {
-	privateKey group.Scalar
-	publicKey  group.Element
+	privateKey *group.Scalar
+	publicKey  *group.Point
 	*oprf
 	nonceR []byte
 }
 
-func (s *Server) evaluate(blinded group.Element) group.Element {
-	return blinded.Mult(s.privateKey)
-}
+func (s *Server) generateProof(k *group.Scalar, blindedElements, evaluatedElements []*group.Point) (proofC, proofS *group.Scalar) {
+	gk := s.id.Group().Base().Mult(k)
+	encGk := lengthPrefixEncode(gk.Bytes())
+	a0, a1 := s.computeComposites(k, encGk, blindedElements, evaluatedElements)
 
-func (s *Server) generateProof(blindedElements, evaluatedElements []group.Element) (proofC, proofS group.Scalar) {
-	encPks := lengthPrefixEncode(s.publicKey.Bytes())
-	a0, a1 := s.computeComposites(s.privateKey, encPks, blindedElements, evaluatedElements)
-
-	var r group.Scalar
+	var r *group.Scalar
 	if s.nonceR == nil {
 		r = s.group.NewScalar().Random()
 	} else {
@@ -36,9 +32,8 @@ func (s *Server) generateProof(blindedElements, evaluatedElements []group.Elemen
 	a2 := s.group.Base().Mult(r)
 	a3 := a0.Mult(r)
 
-	proofC = s.proofScalar(encPks, a0, a1, a2, a3)
-	csk := proofC.Mult(s.privateKey)
-	proofS = r.Sub(csk)
+	proofC = s.challenge(encGk, a0, a1, a2, a3)
+	proofS = r.Sub(proofC.Mult(k))
 
 	return proofC, proofS
 }
@@ -50,22 +45,27 @@ func (s *Server) KeyGen() {
 }
 
 // Evaluate the input with the private key.
-func (s *Server) Evaluate(blindedElement []byte) (*Evaluation, error) {
-	return s.EvaluateBatch([][]byte{blindedElement})
+func (s *Server) Evaluate(blindedElement []byte, info []byte) (*Evaluation, error) {
+	return s.EvaluateBatch([][]byte{blindedElement}, info)
 }
 
 // EvaluateBatch evaluates the input batch of blindedElements and returns a pointer to the Evaluation. If the server
 // was set to be un Verifiable mode, the proof will be included in the Evaluation.
-func (s *Server) EvaluateBatch(blindedElements [][]byte) (*Evaluation, error) {
+func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluation, error) {
 	ev := &evaluation{}
-	ev.elements = make([]group.Element, len(blindedElements))
+	ev.elements = make([]*group.Point, len(blindedElements))
 
-	var blinded []group.Element
+	var blinded []*group.Point
 
 	if s.mode == Verifiable {
-		blinded = make([]group.Element, len(blindedElements))
+		blinded = make([]*group.Point, len(blindedElements))
 	}
 
+	context := s.pTag(info)
+	k := s.privateKey.Add(context)
+	kInv := k.Invert()
+
+	// decode and evaluate element(s)
 	for i, b := range blindedElements {
 		b, err := s.group.NewElement().Decode(b)
 		if err != nil {
@@ -76,11 +76,11 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte) (*Evaluation, error) {
 			blinded[i] = b
 		}
 
-		ev.elements[i] = s.evaluate(b)
+		ev.elements[i] = b.Mult(kInv)
 	}
 
 	if s.mode == Verifiable {
-		ev.proofC, ev.proofS = s.generateProof(blinded, ev.elements)
+		ev.proofC, ev.proofS = s.generateProof(k, blinded, ev.elements)
 	}
 
 	return ev.serialize(s.id), nil
@@ -88,27 +88,28 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte) (*Evaluation, error) {
 
 // FullEvaluate reproduces the full PRF but without the blinding operations, using the client's input.
 // This should output the same digest as the client's Finalize() function.
-func (s *Server) FullEvaluate(input []byte) []byte {
+func (s *Server) FullEvaluate(input, info []byte) []byte {
 	p := s.HashToGroup(input)
-	t := s.evaluate(p)
+	k := s.privateKey.Add(s.pTag(info))
+	t := p.Mult(k.Invert())
 
-	return s.hashTranscript(input, t.Bytes())
+	return s.hashTranscript(input, info, t.Bytes())
 }
 
 // VerifyFinalize takes the client input (the un-blinded element) and the client's finalize() output,
 // and returns whether it can match the client's output.
-func (s *Server) VerifyFinalize(input, output []byte) bool {
-	digest := s.FullEvaluate(input)
+func (s *Server) VerifyFinalize(input, info, output []byte) bool {
+	digest := s.FullEvaluate(input, info)
 	return ctEqual(digest, output)
 }
 
 // VerifyFinalizeBatch takes the batch of client input (the un-blinded elements) and the client's finalize() outputs,
 // and returns whether it can match the client's outputs.
-func (s *Server) VerifyFinalizeBatch(input, output [][]byte) bool {
+func (s *Server) VerifyFinalizeBatch(input, output [][]byte, info []byte) bool {
 	res := true
 
 	for i, in := range input {
-		res = s.VerifyFinalize(in, output[i])
+		res = s.VerifyFinalize(in, info, output[i])
 	}
 
 	return res

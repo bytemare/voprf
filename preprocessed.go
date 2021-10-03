@@ -1,10 +1,7 @@
 package voprf
 
 import (
-	"fmt"
-
-	"github.com/bytemare/cryptotools/encoding"
-	"github.com/bytemare/cryptotools/group"
+	"github.com/bytemare/crypto/group"
 )
 
 // PreprocessedBlind holds the blinding values used in additive blinding.
@@ -15,7 +12,7 @@ type PreprocessedBlind struct {
 
 // DecodePreprocessedBlind decodes the encoded input preprocessed values and returns a pointer to an initialized
 // PreprocessedBlind structure.
-func DecodePreprocessedBlind(input []byte, enc encoding.Encoding) (*PreprocessedBlind, error) {
+/*func DecodePreprocessedBlind(input []byte, enc encoding.Encoding) (*PreprocessedBlind, error) {
 	p, err := enc.Decode(input, &PreprocessedBlind{})
 	if err != nil {
 		return nil, fmt.Errorf("could not decode preprocessed blind : %w", err)
@@ -37,6 +34,7 @@ func (p *PreprocessedBlind) Encode(enc encoding.Encoding) ([]byte, error) {
 
 	return enc.Encode(p)
 }
+*/
 
 // deserialize returns a structure with the internal representations of the preprocessed values.
 func (p *PreprocessedBlind) deserialize(g group.Group) (*ppb, error) {
@@ -52,8 +50,8 @@ func (p *PreprocessedBlind) deserialize(g group.Group) (*ppb, error) {
 		return nil, errPPNilPubKey
 	}
 
-	pp.blindedGenerators = make([]group.Element, len(p.BlindedGenerators))
-	pp.blindedPubKeys = make([]group.Element, len(p.BlindedPubKeys))
+	pp.blindedGenerators = make([]*group.Point, len(p.BlindedGenerators))
+	pp.blindedPubKeys = make([]*group.Point, len(p.BlindedPubKeys))
 
 	for i, bg := range p.BlindedGenerators {
 		pp.blindedGenerators[i], err = g.NewElement().Decode(bg)
@@ -74,8 +72,8 @@ func (p *PreprocessedBlind) deserialize(g group.Group) (*ppb, error) {
 
 // ppb groups pre-computed values to be used as blinding by the Client/Verifier.
 type ppb struct {
-	blindedGenerators []group.Element
-	blindedPubKeys    []group.Element
+	blindedGenerators []*group.Point
+	blindedPubKeys    []*group.Point
 }
 
 func (p *ppb) serialize() *PreprocessedBlind {

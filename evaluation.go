@@ -3,8 +3,7 @@ package voprf
 import (
 	"fmt"
 
-	"github.com/bytemare/cryptotools/encoding"
-	"github.com/bytemare/cryptotools/group"
+	"github.com/bytemare/crypto/group"
 )
 
 // Evaluation holds the serialized evaluated elements and serialized proof.
@@ -17,6 +16,7 @@ type Evaluation struct {
 	ProofS []byte `json:"s,omitempty"`
 }
 
+/*
 // DecodeEvaluation decodes the encoded input evaluation in the specified encoding.
 func DecodeEvaluation(evaluation []byte, enc encoding.Encoding) (*Evaluation, error) {
 	ev, err := enc.Decode(evaluation, &Evaluation{})
@@ -41,12 +41,14 @@ func (e *Evaluation) Encode(enc encoding.Encoding) ([]byte, error) {
 	return enc.Encode(e)
 }
 
+*/
+
 // deserialize returns a structure with the internal representations of the evaluated elements and proofs.
 func (e *Evaluation) deserialize(g group.Group) (*evaluation, error) {
 	var err error
 
 	evaluation := &evaluation{
-		elements: make([]group.Element, len(e.Elements)),
+		elements: make([]*group.Point, len(e.Elements)),
 	}
 
 	for i, el := range e.Elements {
@@ -77,9 +79,9 @@ func (e *Evaluation) deserialize(g group.Group) (*evaluation, error) {
 
 // evaluation holds the evaluated elements and proofs in their internal representations.
 type evaluation struct {
-	elements []group.Element
-	proofC   group.Scalar
-	proofS   group.Scalar
+	elements []*group.Point
+	proofC   *group.Scalar
+	proofS   *group.Scalar
 }
 
 // serialize serializes the components of the evaluation into byte arrays to be exposed in API.

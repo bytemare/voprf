@@ -3,8 +3,7 @@ package voprf
 import (
 	"errors"
 	"fmt"
-
-	"github.com/bytemare/cryptotools/group"
+	"github.com/bytemare/crypto/group"
 )
 
 var (
@@ -18,12 +17,12 @@ var (
 // Client represents the Client/Verifier party in a (V)OPRF protocol session,
 // and exposes relevant functions for its execution.
 type Client struct {
-	serverPublicKey group.Element
+	serverPublicKey *group.Point
 	*oprf
 
 	input             [][]byte
-	blind             []group.Scalar
-	blindedElement    []group.Element
+	blind             []*group.Scalar
+	blindedElement    []*group.Point
 	preprocessedBLind *ppb
 }
 
@@ -39,7 +38,7 @@ type State struct {
 	PreprocessedBlind *PreprocessedBlind `json:"pb,omitempty"`
 }
 
-// Export extracts the client's internal values that can be imported in an other client for session resumption.
+// Export extracts the client's internal values that can be imported in another client for session resumption.
 func (c *Client) Export() *State {
 	s := &State{
 		Ciphersuite: c.id,
@@ -110,7 +109,7 @@ func (c *Client) Import(state *State) error {
 		}
 	}
 
-	c.blind = make([]group.Scalar, len(state.Blind))
+	c.blind = make([]*group.Scalar, len(state.Blind))
 	for i := 0; i < len(state.Blind); i++ {
 		c.blind[i], err = c.group.NewScalar().Decode(state.Blind[i])
 		if err != nil {
@@ -119,7 +118,7 @@ func (c *Client) Import(state *State) error {
 	}
 
 	c.input = make([][]byte, len(state.Input))
-	c.blindedElement = make([]group.Element, len(state.Blinded))
+	c.blindedElement = make([]*group.Point, len(state.Blinded))
 
 	for i := 0; i < len(state.Blinded); i++ {
 		c.input[i] = make([]byte, len(state.Input[i]))
@@ -142,13 +141,13 @@ func (c *Client) initBlinding(length int) error {
 	}
 
 	if len(c.blind) == 0 {
-		c.blind = make([]group.Scalar, length)
+		c.blind = make([]*group.Scalar, length)
 	} else if len(c.blind) != length {
 		return errArrayLength
 	}
 
 	if len(c.blindedElement) == 0 {
-		c.blindedElement = make([]group.Element, length)
+		c.blindedElement = make([]*group.Point, length)
 	} else if len(c.blindedElement) != length {
 		return errArrayLength
 	}
@@ -156,23 +155,20 @@ func (c *Client) initBlinding(length int) error {
 	return nil
 }
 
-func (c *Client) blindMult(input []byte, scalar group.Scalar) (group.Scalar, group.Element) {
+func (c *Client) blindMult(input []byte, scalar *group.Scalar) (*group.Scalar, *group.Point) {
 	if scalar == nil {
 		scalar = c.group.NewScalar().Random()
 	}
 
-	p := c.HashToGroup(input)
-	m := p.Mult(scalar)
-
-	return scalar, m
+	return scalar, c.HashToGroup(input).Mult(scalar)
 }
 
-func (c *Client) blindAdd(input []byte, blind group.Element) group.Element {
+func (c *Client) blindAdd(input []byte, blind *group.Point) *group.Point {
 	p := c.HashToGroup(input)
 	return p.Add(blind)
 }
 
-//func (c *Client) blindInput(input []byte, scalar group.Scalar) (group.Scalar, group.Element) {
+//func (c *Client) blindInput(input []byte, scalar *group.Scalar) (*group.Scalar, *group.Point) {
 //	p := c.HashToGroup(input)
 //
 //	if c.blinding == Multiplicative {
@@ -192,19 +188,20 @@ func (c *Client) blindAdd(input []byte, blind group.Element) group.Element {
 //	return nil, p.Add(c.preprocessedBLind.blindedGenerator)
 //}
 
-func (c *Client) verifyProof(ev *evaluation) bool {
-	publicKey := c.serverPublicKey
-	encPks := lengthPrefixEncode(publicKey.Bytes())
-	a0, a1 := c.computeComposites(nil, encPks, c.blindedElement, ev.elements)
+func (c *Client) verifyProof(info []byte, ev *evaluation) bool {
+	tag := c.pTag(info)
+	gk := c.id.Group().Base().Mult(tag).Add(c.serverPublicKey)
+	encGk := lengthPrefixEncode(gk.Bytes())
+	a0, a1 := c.computeComposites(nil, encGk, c.blindedElement, ev.elements)
 
 	ab := c.group.Base().Mult(ev.proofS)
-	ap := publicKey.Mult(ev.proofC)
+	ap := gk.Mult(ev.proofC)
 	a2 := ab.Add(ap)
 
 	bm := a0.Mult(ev.proofS)
 	bz := a1.Mult(ev.proofC)
 	a3 := bm.Add(bz)
-	expectedC := c.proofScalar(encPks, a0, a1, a2, a3)
+	expectedC := c.challenge(encGk, a0, a1, a2, a3)
 
 	return ctEqual(expectedC.Bytes(), ev.proofC.Bytes())
 }
@@ -282,7 +279,7 @@ func (c *Client) BlindBatchWithBlinds(blinds, input [][]byte) ([][]byte, error) 
 	return blindedElements, nil
 }
 
-func (c *Client) unblind(evaluated group.Element, index int) group.Element {
+func (c *Client) unblind(evaluated *group.Point, index int) *group.Point {
 	if c.blinding == Multiplicative {
 		return evaluated.InvertMult(c.blind[index])
 	}
@@ -292,8 +289,8 @@ func (c *Client) unblind(evaluated group.Element, index int) group.Element {
 
 // Finalize finalizes the protocol execution by verifying the proof if necessary,
 // unblinding the evaluated element, and hashing the transcript.
-func (c *Client) Finalize(e *Evaluation) ([]byte, error) {
-	output, err := c.FinalizeBatch(e)
+func (c *Client) Finalize(e *Evaluation, info []byte) ([]byte, error) {
+	output, err := c.FinalizeBatch(e, info)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +300,7 @@ func (c *Client) Finalize(e *Evaluation) ([]byte, error) {
 
 // FinalizeBatch finalizes the protocol execution by verifying the proof if necessary,
 // unblinding the evaluated elements, and hashing the transcript.
-func (c *Client) FinalizeBatch(e *Evaluation) ([][]byte, error) {
+func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 	if len(e.Elements) != len(c.input) {
 		return nil, errParamFinalizeLen
 	}
@@ -326,7 +323,7 @@ func (c *Client) FinalizeBatch(e *Evaluation) ([][]byte, error) {
 			return nil, errNilProofS
 		}
 
-		if !c.verifyProof(ev) {
+		if !c.verifyProof(info, ev) {
 			return nil, errProofFailed
 		}
 	}
@@ -335,7 +332,7 @@ func (c *Client) FinalizeBatch(e *Evaluation) ([][]byte, error) {
 
 	for i, ee := range ev.elements {
 		u := c.unblind(ee, i)
-		out[i] = c.hashTranscript(c.input[i], u.Bytes())
+		out[i] = c.hashTranscript(c.input[i], info, u.Bytes())
 	}
 
 	return out, nil

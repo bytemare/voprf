@@ -1,10 +1,6 @@
 package voprf
 
-import (
-	"encoding/hex"
-	"github.com/bytemare/cryptotools/encoding"
-)
-
+/*
 func exchangeWithServer(blinded []byte, verifiable bool, enc encoding.Encoding) []byte {
 	var server *Server
 	var err error
@@ -23,7 +19,7 @@ func exchangeWithServer(blinded []byte, verifiable bool, enc encoding.Encoding) 
 		}
 	}
 
-	evaluation, err := server.Evaluate(blinded)
+	evaluation, err := server.Evaluate(blinded, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -56,12 +52,14 @@ func ExampleBaseMultiplicativeClient() {
 	}
 
 	// The client finalizes the protocol execution by reverting the blinding and hashing the protocol transcript.
-	output, err := client.Finalize(eval)
+	output, err := client.Finalize(eval, nil)
 	if output == nil || err != nil {
 		panic(err)
 	}
 	// Output:
 }
+
+*/
 
 //func ExampleBaseAdditiveClient() {
 //	input := []byte("input")
@@ -175,6 +173,7 @@ func ExampleBaseMultiplicativeClient() {
 //	// Output:
 //}
 
+/*
 func ExampleBaseServer() {
 	enc := encoding.JSON
 
@@ -188,7 +187,7 @@ func ExampleBaseServer() {
 	}
 
 	// The server evaluates the blinded input.
-	evaluation, err := server.Evaluate(blinded)
+	evaluation, err := server.Evaluate(blinded, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -215,7 +214,7 @@ func ExampleVerifiableServer() {
 	}
 
 	// The server evaluates the blinded input. Proofs are embedded in the evaluation.
-	evaluation, err := server.Evaluate(blinded)
+	evaluation, err := server.Evaluate(blinded, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -226,4 +225,5 @@ func ExampleVerifiableServer() {
 		panic(err)
 	}
 	// Output:
-}
+
+*/

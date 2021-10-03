@@ -11,17 +11,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bytemare/cryptotools/group"
+	"github.com/bytemare/crypto/group"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/bytemare/cryptotools/encoding"
-	"github.com/bytemare/cryptotools/hash"
+	"github.com/bytemare/crypto/hash"
 )
 
 type test struct {
 	Batch             int
 	Blind             [][]byte
 	BlindedElement    [][]byte
+	Info              []byte
 	EvaluationElement [][]byte
 	ProofC            []byte
 	NonceR            []byte
@@ -37,11 +37,11 @@ type testVector struct {
 	Blind             string `json:"Blind"`
 	BlindedElement    string `json:"BlindedElement"`
 	EvaluationElement string `json:"EvaluationElement"`
+	Info              string `json:"Info"`
 	EvaluationProof   struct {
-		C string `json:"c,omitempty"`
-		R string `json:"r,omitempty"`
-		S string `json:"s,omitempty"`
-	} `json:"EvaluationProof,omitempty"`
+		Proof  string `json:"proof,omitempty"`
+		Random string `json:"r,omitempty"`
+	} `json:"Proof,omitempty"`
 	Input  string `json:"Input"`
 	Output string `json:"Output"`
 }
@@ -107,19 +107,31 @@ func (tv *testVector) Decode() (*test, error) {
 		return nil, fmt.Errorf(" EvaluationElement decoding errored with %q", err)
 	}
 
-	proofC, err := hex.DecodeString(tv.EvaluationProof.C)
+	info, err := hex.DecodeString(tv.Info)
 	if err != nil {
-		return nil, fmt.Errorf(" ProofC decoding errored with %q", err)
+		return nil, fmt.Errorf(" info decoding errored with %q", err)
 	}
 
-	nonceR, err := hex.DecodeString(tv.EvaluationProof.R)
-	if err != nil {
-		return nil, fmt.Errorf(" NonceR decoding errored with %q", err)
-	}
+	var proofC, nonceR, proofS []byte
+	if len(tv.EvaluationProof.Proof) != 0 {
+		pLen := len(tv.EvaluationProof.Proof)
+		c := tv.EvaluationProof.Proof[:pLen/2]
+		s := tv.EvaluationProof.Proof[pLen/2:]
 
-	proofS, err := hex.DecodeString(tv.EvaluationProof.S)
-	if err != nil {
-		return nil, fmt.Errorf(" ProofS decoding errored with %q", err)
+		proofC, err = hex.DecodeString(c)
+		if err != nil {
+			return nil, fmt.Errorf(" ProofC decoding errored with %q", err)
+		}
+
+		proofS, err = hex.DecodeString(s)
+		if err != nil {
+			return nil, fmt.Errorf(" ProofS decoding errored with %q", err)
+		}
+
+		nonceR, err = hex.DecodeString(tv.EvaluationProof.Random)
+		if err != nil {
+			return nil, fmt.Errorf(" NonceR decoding errored with %q", err)
+		}
 	}
 
 	input, err := decodeBatch(tv.Batch, tv.Input)
@@ -139,6 +151,7 @@ func (tv *testVector) Decode() (*test, error) {
 		Blind:             blind,
 		BlindedElement:    blinded,
 		EvaluationElement: evaluationElement,
+		Info:              info,
 		ProofC:            proofC,
 		NonceR:            nonceR,
 		ProofS:            proofS,
@@ -203,6 +216,7 @@ func (v vector) checkParams(t *testing.T) {
 	}
 }
 
+/*
 func getPreprocessedBlind(c Ciphersuite, serverPublicKey []byte, blinds [][]byte) (*PreprocessedBlind, error) {
 	preprocessed, err := c.PreprocessWithBlinds(blinds, serverPublicKey)
 	if err != nil {
@@ -222,26 +236,33 @@ func getPreprocessedBlind(c Ciphersuite, serverPublicKey []byte, blinds [][]byte
 	return decoded, nil
 }
 
+*/
+
 func getClient(c Ciphersuite, mode Mode, blinding Blinding, blinds [][]byte, serverPublicKey []byte) (*Client, error) {
-	var verifiablePubKey []byte
-
-	if mode == Verifiable {
-		verifiablePubKey = serverPublicKey
-	}
-
-	switch blinding {
-	case Multiplicative:
+	switch mode {
+	case Base:
 		return c.Client(), nil
-	case Additive:
-		p, err := getPreprocessedBlind(c, serverPublicKey, blinds)
-		if err != nil {
-			return nil, err
-		}
-
-		return c.ClientAdditive(verifiablePubKey, p)
+	case Verifiable:
+		return c.VerifiableClient(serverPublicKey)
 	default:
 		return nil, errors.New("invalid blinding")
 	}
+
+	/*
+		switch blinding {
+		case Multiplicative:
+			return c.Client(), nil
+		case Additive:
+			p, err := getPreprocessedBlind(c, serverPublicKey, blinds)
+			if err != nil {
+				return nil, err
+			}
+
+			return c.ClientAdditive(verifiablePubKey, p)
+		default:
+			return nil, errors.New("invalid blinding")
+		}
+	*/
 }
 
 func getServer(c Ciphersuite, mode Mode, privateKey []byte) (*Server, error) {
@@ -255,17 +276,17 @@ func getServer(c Ciphersuite, mode Mode, privateKey []byte) (*Server, error) {
 	}
 }
 
-func testBlind(t *testing.T, client *Client, input, blind, output []byte) {
+func testBlind(t *testing.T, client *Client, input, blind, expected []byte) {
 	s, err := client.group.NewScalar().Decode(blind)
 	if err != nil {
 		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", client.oprf.id, err))
 	}
 
-	client.blind = []group.Scalar{s}
+	client.blind = []*group.Scalar{s}
 
 	blinded := client.Blind(input)
 
-	if !assert.Equal(t, output, blinded) {
+	if !assert.Equal(t, expected, blinded) {
 		t.Fatal("unexpected blinded output")
 	}
 }
@@ -325,7 +346,7 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 	var ev *Evaluation
 	server.nonceR = test.NonceR
 	if test.Batch == 1 {
-		ev, err = server.Evaluate(test.BlindedElement[0])
+		ev, err = server.Evaluate(test.BlindedElement[0], test.Info)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -334,7 +355,7 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 			t.Fatal("unexpected evaluation element")
 		}
 	} else {
-		ev, err = server.EvaluateBatch(test.BlindedElement)
+		ev, err = server.EvaluateBatch(test.BlindedElement, test.Info)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -347,7 +368,7 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 	// Set proofs
 	if mode == Verifiable {
 		if !assert.Equal(t, test.ProofC, ev.ProofC) {
-			t.Error("unexpected c proof")
+			t.Errorf("unexpected c proof\n\t%v\n\t%v", hex.EncodeToString(test.ProofC), hex.EncodeToString(ev.ProofC))
 		}
 
 		if !assert.Equal(t, test.ProofS, ev.ProofS) {
@@ -357,7 +378,7 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 
 	// Client finalize
 	if test.Batch == 1 {
-		output, err := client.Finalize(ev)
+		output, err := client.Finalize(ev, test.Info)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -366,11 +387,11 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 			t.Fatal("not equal")
 		}
 
-		if !server.VerifyFinalize(test.Input[0], output) {
+		if !server.VerifyFinalize(test.Input[0], test.Info, output) {
 			t.Fatal("VerifyFinalize() returned false.")
 		}
 	} else {
-		output, err := client.FinalizeBatch(ev)
+		output, err := client.FinalizeBatch(ev, test.Info)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -379,7 +400,7 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 			t.Fatal("not equal")
 		}
 
-		if !server.VerifyFinalizeBatch(test.Input, output) {
+		if !server.VerifyFinalizeBatch(test.Input, output, test.Info) {
 			t.Fatal("VerifyFinalize() returned false.")
 		}
 	}
@@ -437,12 +458,12 @@ func (v vector) test(t *testing.T) {
 			// Set up a new client.
 			var m Blinding
 			var blinds [][]byte
-			if mode == Base {
-				m = Multiplicative
-			} else {
+			//if mode == Base {
+			m = Multiplicative
+			/*} else {
 				m = Additive
 				blinds = test.Blind
-			}
+			}*/
 
 			client, err := getClient(suite, mode, m, blinds, serverPublicKey)
 			if err != nil {
@@ -483,6 +504,10 @@ func TestVOPRF(t *testing.T) {
 
 			for _, tv := range v {
 				if tv.SuiteName == "OPRF(decaf448, SHAKE-256)" {
+					continue
+				}
+
+				if tv.SuiteName == "OPRF(P-384, SHA-384)" {
 					continue
 				}
 

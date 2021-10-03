@@ -7,7 +7,7 @@ import (
 
 func testExport(t *testing.T, client *Client, export *State) {
 	if export.Ciphersuite != client.id {
-		t.Fatal("ciphersuite does not match")
+		t.Fatal("group does not match")
 	}
 
 	if export.Mode != client.mode {
