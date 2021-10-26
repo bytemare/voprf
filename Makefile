@@ -3,8 +3,8 @@ COMMIT      := $(shell git rev-parse HEAD)
 
 .PHONY: lint
 lint:
-	@echo "Linting and security ..."
-	@go vet ./...
+	@echo "Linting ..."
+	@gofumports -w -local github.com/bytemare/voprf .
 	@golangci-lint run --config=./.github/.golangci.yml ./...
 
 .PHONY: test

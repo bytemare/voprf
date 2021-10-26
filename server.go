@@ -2,6 +2,7 @@ package voprf
 
 import (
 	"fmt"
+
 	"github.com/bytemare/crypto/group"
 )
 
@@ -45,7 +46,7 @@ func (s *Server) KeyGen() {
 }
 
 // Evaluate the input with the private key.
-func (s *Server) Evaluate(blindedElement []byte, info []byte) (*Evaluation, error) {
+func (s *Server) Evaluate(blindedElement, info []byte) (*Evaluation, error) {
 	return s.EvaluateBatch([][]byte{blindedElement}, info)
 }
 
@@ -63,7 +64,7 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 
 	context := s.pTag(info)
 	k := s.privateKey.Add(context)
-	kInv := k.Invert()
+	inv := k.Invert()
 
 	// decode and evaluate element(s)
 	for i, b := range blindedElements {
@@ -76,7 +77,7 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 			blinded[i] = b
 		}
 
-		ev.elements[i] = b.Mult(kInv)
+		ev.elements[i] = b.Mult(inv)
 	}
 
 	if s.mode == Verifiable {

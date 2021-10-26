@@ -14,10 +14,6 @@ func testExport(t *testing.T, client *Client, export *State) {
 		t.Fatal("mode is not correct")
 	}
 
-	if export.Blinding != client.blinding {
-		t.Fatal("blinding is not correct")
-	}
-
 	if !bytes.Equal(export.ServerPublicKey, client.serverPublicKey.Bytes()) {
 		t.Fatal("blind is not correct")
 	}
@@ -32,21 +28,6 @@ func testExport(t *testing.T, client *Client, export *State) {
 		if !bytes.Equal(export.Blind[i], b.Bytes()) {
 			t.Fatalf("blind %d is not correct", i)
 		}
-	}
-
-	if client.preprocessedBLind != nil {
-		for i, bp := range export.PreprocessedBlind.BlindedPubKeys {
-			if !bytes.Equal(bp, client.preprocessedBLind.blindedPubKeys[i].Bytes()) {
-				t.Fatal("blinded pubkey is not correct")
-			}
-		}
-
-		for i, bp := range export.PreprocessedBlind.BlindedGenerators {
-			if !bytes.Equal(bp, client.preprocessedBLind.blindedGenerators[i].Bytes()) {
-				t.Fatal("blinded pubkey is not correct")
-			}
-		}
-
 	}
 }
 

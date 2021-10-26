@@ -3,14 +3,14 @@ package voprf
 import (
 	"errors"
 	"fmt"
+
 	"github.com/bytemare/crypto/group"
 )
 
 var (
-	errArrayLength = errors.New("blinding init failed, non-nil array of incompatible length")
-	errNilProofC   = errors.New("c proof is nil or empty")
-	errNilProofS   = errors.New("s proof is nil or empty")
-	// errNilPPB      = errors.New("preprocessBlind is nil while using additive blinding").
+	errArrayLength        = errors.New("blinding init failed, non-nil array of incompatible length")
+	errNilProofC          = errors.New("c proof is nil or empty")
+	errNilProofS          = errors.New("s proof is nil or empty")
 	errInvalidNumElements = errors.New("invalid number of element ")
 )
 
@@ -20,22 +20,19 @@ type Client struct {
 	serverPublicKey *group.Point
 	*oprf
 
-	input             [][]byte
-	blind             []*group.Scalar
-	blindedElement    []*group.Point
-	preprocessedBLind *ppb
+	input          [][]byte
+	blind          []*group.Scalar
+	blindedElement []*group.Point
 }
 
 // State represents a client's state, allowing internal values to be exported and imported to resume a (V)OPRF session.
 type State struct {
-	Ciphersuite       Ciphersuite        `json:"s"`
-	Mode              Mode               `json:"m"`
-	Blinding          Blinding           `json:"b"`
-	ServerPublicKey   []byte             `json:"p,omitempty"`
-	Input             [][]byte           `json:"i"`
-	Blind             [][]byte           `json:"r"`
-	Blinded           [][]byte           `json:"d"`
-	PreprocessedBlind *PreprocessedBlind `json:"pb,omitempty"`
+	Ciphersuite     Ciphersuite `json:"s"`
+	Mode            Mode        `json:"m"`
+	ServerPublicKey []byte      `json:"p,omitempty"`
+	Input           [][]byte    `json:"i"`
+	Blind           [][]byte    `json:"r"`
+	Blinded         [][]byte    `json:"d"`
 }
 
 // Export extracts the client's internal values that can be imported in another client for session resumption.
@@ -43,7 +40,6 @@ func (c *Client) Export() *State {
 	s := &State{
 		Ciphersuite: c.id,
 		Mode:        c.mode,
-		Blinding:    c.blinding,
 	}
 
 	if c.serverPublicKey != nil {
@@ -65,10 +61,6 @@ func (c *Client) Export() *State {
 		s.Blinded[i] = serializePoint(c.blindedElement[i], pointLength(c.id))
 	}
 
-	if c.preprocessedBLind != nil {
-		s.PreprocessedBlind = c.preprocessedBLind.serialize()
-	}
-
 	return s
 }
 
@@ -83,27 +75,14 @@ func (c *Client) Import(state *State) error {
 		return errStateDiffBlind
 	}
 
-	if state.Blinding == Additive && state.PreprocessedBlind == nil {
-		return errStateNoPPB
-	}
-
-	// todo : check blinding == mult && ppb != nil
-
 	if state.Mode == Verifiable && state.ServerPublicKey == nil {
 		return errStateNoPubKey
 	}
 
-	c.oprf = suites[state.Ciphersuite].new(state.Mode, state.Blinding)
+	c.oprf = suites[state.Ciphersuite].new(state.Mode)
 
 	if state.ServerPublicKey != nil {
 		c.serverPublicKey, err = c.group.NewElement().Decode(state.ServerPublicKey)
-		if err != nil {
-			return err
-		}
-	}
-
-	if state.PreprocessedBlind != nil {
-		c.preprocessedBLind, err = state.PreprocessedBlind.deserialize(c.group)
 		if err != nil {
 			return err
 		}
@@ -155,39 +134,6 @@ func (c *Client) initBlinding(length int) error {
 	return nil
 }
 
-func (c *Client) blindMult(input []byte, scalar *group.Scalar) (*group.Scalar, *group.Point) {
-	if scalar == nil {
-		scalar = c.group.NewScalar().Random()
-	}
-
-	return scalar, c.HashToGroup(input).Mult(scalar)
-}
-
-func (c *Client) blindAdd(input []byte, blind *group.Point) *group.Point {
-	p := c.HashToGroup(input)
-	return p.Add(blind)
-}
-
-//func (c *Client) blindInput(input []byte, scalar *group.Scalar) (*group.Scalar, *group.Point) {
-//	p := c.HashToGroup(input)
-//
-//	if c.blinding == Multiplicative {
-//		if scalar == nil {
-//			scalar = c.group.NewScalar().Random()
-//		}
-//
-//		m := p.Mult(scalar)
-//
-//		return scalar, m
-//	}
-//
-//	if c.preprocessedBLind == nil {
-//		panic(errNilPPB)
-//	}
-//
-//	return nil, p.Add(c.preprocessedBLind.blindedGenerator)
-//}
-
 func (c *Client) verifyProof(info []byte, ev *evaluation) bool {
 	tag := c.pTag(info)
 	gk := c.id.Group().Base().Mult(tag).Add(c.serverPublicKey)
@@ -207,14 +153,12 @@ func (c *Client) verifyProof(info []byte, ev *evaluation) bool {
 }
 
 func (c *Client) innerBlind(input []byte, index int) {
-	c.input[index] = input
-
-	switch c.blinding {
-	case Multiplicative:
-		c.blind[index], c.blindedElement[index] = c.blindMult(input, c.blind[index])
-	case Additive:
-		c.blindedElement[index] = c.blindAdd(input, c.preprocessedBLind.blindedGenerators[index])
+	if c.blind[index] == nil {
+		c.blind[index] = c.group.NewScalar().Random()
 	}
+
+	c.input[index] = input
+	c.blindedElement[index] = c.HashToGroup(input).Mult(c.blind[index])
 }
 
 // Blind blinds, or masks, the input with a preset or new random blinding element.
@@ -279,12 +223,8 @@ func (c *Client) BlindBatchWithBlinds(blinds, input [][]byte) ([][]byte, error) 
 	return blindedElements, nil
 }
 
-func (c *Client) unblind(evaluated *group.Point, index int) *group.Point {
-	if c.blinding == Multiplicative {
-		return evaluated.InvertMult(c.blind[index])
-	}
-
-	return evaluated.Sub(c.preprocessedBLind.blindedPubKeys[index])
+func (c *Client) unblind(evaluated *group.Point, blind *group.Scalar) *group.Point {
+	return evaluated.InvertMult(blind)
 }
 
 // Finalize finalizes the protocol execution by verifying the proof if necessary,
@@ -331,7 +271,7 @@ func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 	out := make([][]byte, len(c.input))
 
 	for i, ee := range ev.elements {
-		u := c.unblind(ee, i)
+		u := c.unblind(ee, c.blind[i])
 		out[i] = c.hashTranscript(c.input[i], info, u.Bytes())
 	}
 

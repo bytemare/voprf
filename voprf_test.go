@@ -238,7 +238,7 @@ func getPreprocessedBlind(c Ciphersuite, serverPublicKey []byte, blinds [][]byte
 
 */
 
-func getClient(c Ciphersuite, mode Mode, blinding Blinding, blinds [][]byte, serverPublicKey []byte) (*Client, error) {
+func getClient(c Ciphersuite, mode Mode, serverPublicKey []byte) (*Client, error) {
 	switch mode {
 	case Base:
 		return c.Client(), nil
@@ -247,22 +247,6 @@ func getClient(c Ciphersuite, mode Mode, blinding Blinding, blinds [][]byte, ser
 	default:
 		return nil, errors.New("invalid blinding")
 	}
-
-	/*
-		switch blinding {
-		case Multiplicative:
-			return c.Client(), nil
-		case Additive:
-			p, err := getPreprocessedBlind(c, serverPublicKey, blinds)
-			if err != nil {
-				return nil, err
-			}
-
-			return c.ClientAdditive(verifiablePubKey, p)
-		default:
-			return nil, errors.New("invalid blinding")
-		}
-	*/
 }
 
 func getServer(c Ciphersuite, mode Mode, privateKey []byte) (*Server, error) {
@@ -455,17 +439,7 @@ func (v vector) test(t *testing.T) {
 				t.Fatal("DST not equal")
 			}
 
-			// Set up a new client.
-			var m Blinding
-			var blinds [][]byte
-			//if mode == Base {
-			m = Multiplicative
-			/*} else {
-				m = Additive
-				blinds = test.Blind
-			}*/
-
-			client, err := getClient(suite, mode, m, blinds, serverPublicKey)
+			client, err := getClient(suite, mode, serverPublicKey)
 			if err != nil {
 				t.Fatal(err)
 			}

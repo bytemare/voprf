@@ -3,6 +3,7 @@ package voprf
 import (
 	"crypto/subtle"
 	"encoding/binary"
+
 	"github.com/bytemare/crypto/group"
 	"github.com/bytemare/crypto/utils"
 )
@@ -30,7 +31,7 @@ func scalarLength(c Ciphersuite) int {
 	//	return 56
 	case P256Sha256:
 		return p256ScalarLength
-	case P384Sha512:
+	case P384Sha384:
 		return p384ScalarLength
 	case P521Sha512:
 		return p521ScalarLength
@@ -47,7 +48,7 @@ func pointLength(c Ciphersuite) int {
 	//	return 56
 	case P256Sha256:
 		return p256PointLength
-	case P384Sha512:
+	case P384Sha384:
 		return p384PointLength
 	case P521Sha512:
 		return p521PointLength
@@ -98,7 +99,8 @@ func (o *oprf) ccScalar(encSeed []byte, index int, blindedElement, evaluatedElem
 	return o.HashToScalar(input)
 }
 
-func (o *oprf) computeCompositesFast(k *group.Scalar, encSeed, encCompositeDST []byte, blindedElements, evaluatedElements []*group.Point) (m, z *group.Point) {
+func (o *oprf) computeCompositesFast(k *group.Scalar, encSeed, encCompositeDST []byte,
+	blindedElements, evaluatedElements []*group.Point) (m, z *group.Point) {
 	m = o.group.Identity()
 
 	for i, evaluated := range evaluatedElements {
