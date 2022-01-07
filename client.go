@@ -137,7 +137,7 @@ func (c *Client) initBlinding(length int) error {
 func (c *Client) verifyProof(info []byte, ev *evaluation) bool {
 	tag := c.pTag(info)
 	gk := c.id.Group().Base().Mult(tag).Add(c.serverPublicKey)
-	encGk := lengthPrefixEncode(gk.Bytes())
+	encGk := lengthPrefixEncode(serializePoint(gk, pointLength(c.id)))
 	a0, a1 := c.computeComposites(nil, encGk, c.blindedElement, ev.elements)
 
 	ab := c.group.Base().Mult(ev.proofS)
@@ -272,7 +272,9 @@ func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 
 	for i, ee := range ev.elements {
 		u := c.unblind(ee, c.blind[i])
-		out[i] = c.hashTranscript(c.input[i], info, u.Bytes())
+		//pi := c.HashToGroup(c.input[i])
+		//out[i] = c.hashTranscript(serializePoint(pi, pointLength(c.id)), info, serializePoint(u, pointLength(c.id)))
+		out[i] = c.hashTranscript(c.input[i], info, serializePoint(u, pointLength(c.id)))
 	}
 
 	return out, nil

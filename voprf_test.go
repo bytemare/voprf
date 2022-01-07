@@ -275,35 +275,6 @@ func testBlind(t *testing.T, client *Client, input, blind, expected []byte) {
 	}
 }
 
-func testBlindBatch(t *testing.T, client *Client, inputs, blinds, outputs [][]byte) {
-	if err := client.initBlinding(len(inputs)); err != nil {
-		t.Fatal(err)
-	}
-
-	//for i, b := range blinds {
-	//	s, err := client.group.NewScalar().Decode(b)
-	//	if err != nil {
-	//		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", client.oprf.id, err))
-	//	}
-	//
-	//	client.blind[i] = s
-	//}
-
-	//_, blinded, err := client.BlindBatch(inputs)
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
-
-	blinded, err := client.BlindBatchWithBlinds(blinds, inputs)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !assert.Equal(t, outputs, blinded) {
-		t.Fatal("unexpected blinded output")
-	}
-}
-
 func testBlindBatchWithBlinds(t *testing.T, client *Client, inputs, blinds, outputs [][]byte) {
 	blinded, err := client.BlindBatchWithBlinds(blinds, inputs)
 	if err != nil {
@@ -322,7 +293,6 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 	if test.Batch == 1 {
 		testBlind(t, client, test.Input[0], test.Blind[0], test.BlindedElement[0])
 	} else {
-		testBlindBatch(t, client, test.Input, test.Blind, test.BlindedElement)
 		testBlindBatchWithBlinds(t, client, test.Input, test.Blind, test.BlindedElement)
 	}
 

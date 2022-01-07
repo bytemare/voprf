@@ -104,8 +104,8 @@ func (c Ciphersuite) KeyGen() *KeyPair {
 
 	return &KeyPair{
 		ID:        c,
-		PublicKey: pk.Bytes(),
-		SecretKey: sk.Bytes(),
+		PublicKey: serializePoint(pk, pointLength(c)),
+		SecretKey: serializeScalar(sk, scalarLength(c)),
 	}
 }
 
