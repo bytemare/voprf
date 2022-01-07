@@ -272,8 +272,9 @@ func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 
 	for i, ee := range ev.elements {
 		u := c.unblind(ee, c.blind[i])
-		pi := c.HashToGroup(c.input[i])
-		out[i] = c.hashTranscript(serializePoint(pi, pointLength(c.id)), info, serializePoint(u, pointLength(c.id)))
+		//pi := c.HashToGroup(c.input[i])
+		//out[i] = c.hashTranscript(serializePoint(pi, pointLength(c.id)), info, serializePoint(u, pointLength(c.id)))
+		out[i] = c.hashTranscript(c.input[i], info, serializePoint(u, pointLength(c.id)))
 	}
 
 	return out, nil

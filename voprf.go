@@ -44,7 +44,7 @@ const (
 	sP521Sha512      = "P521Sha512"
 
 	// version is a string explicitly stating the version name.
-	version = "VOPRF07-"
+	version = "VOPRF08-"
 
 	// hash2groupDSTPrefix is the DST prefix to use for HashToGroup operations.
 	hash2groupDSTPrefix = "HashToGroup-"

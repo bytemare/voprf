@@ -94,7 +94,8 @@ func (s *Server) FullEvaluate(input, info []byte) []byte {
 	k := s.privateKey.Add(s.pTag(info))
 	t := p.Mult(k.Invert())
 
-	return s.hashTranscript(serializePoint(p, pointLength(s.id)), info, serializePoint(t, scalarLength(s.id)))
+	//return s.hashTranscript(serializePoint(p, pointLength(s.id)), info, serializePoint(t, scalarLength(s.id)))
+	return s.hashTranscript(input, info, serializePoint(t, scalarLength(s.id)))
 }
 
 // VerifyFinalize takes the client input (the un-blinded element) and the client's finalize() output,
