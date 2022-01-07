@@ -44,7 +44,7 @@ const (
 	sP521Sha512      = "P521Sha512"
 
 	// version is a string explicitly stating the version name.
-	version = "VOPRF08-"
+	version = "VOPRF07-"
 
 	// hash2groupDSTPrefix is the DST prefix to use for HashToGroup operations.
 	hash2groupDSTPrefix = "HashToGroup-"
@@ -104,8 +104,8 @@ func (c Ciphersuite) KeyGen() *KeyPair {
 
 	return &KeyPair{
 		ID:        c,
-		PublicKey: pk.Bytes(),
-		SecretKey: sk.Bytes(),
+		PublicKey: serializePoint(pk, pointLength(c)),
+		SecretKey: serializeScalar(sk, scalarLength(c)),
 	}
 }
 

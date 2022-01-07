@@ -154,10 +154,10 @@ func (o *oprf) hashTranscript(input, info, unblinded []byte) []byte {
 }
 
 func (o *oprf) challenge(encPks []byte, a0, a1, a2, a3 *group.Point) *group.Scalar {
-	encA0 := lengthPrefixEncode(a0.Bytes())
-	encA1 := lengthPrefixEncode(a1.Bytes())
-	encA2 := lengthPrefixEncode(a2.Bytes())
-	encA3 := lengthPrefixEncode(a3.Bytes())
+	encA0 := lengthPrefixEncode(serializePoint(a0, pointLength(o.id)))
+	encA1 := lengthPrefixEncode(serializePoint(a1, pointLength(o.id)))
+	encA2 := lengthPrefixEncode(serializePoint(a2, pointLength(o.id)))
+	encA3 := lengthPrefixEncode(serializePoint(a3, pointLength(o.id)))
 	encDST := lengthPrefixEncode(o.dst(dstChallengePrefix))
 	input := utils.Concatenate(encPks, encA0, encA1, encA2, encA3, encDST)
 

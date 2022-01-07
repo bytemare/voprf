@@ -16,7 +16,7 @@ type Server struct {
 
 func (s *Server) generateProof(k *group.Scalar, blindedElements, evaluatedElements []*group.Point) (proofC, proofS *group.Scalar) {
 	gk := s.id.Group().Base().Mult(k)
-	encGk := lengthPrefixEncode(gk.Bytes())
+	encGk := lengthPrefixEncode(serializePoint(gk, pointLength(s.id)))
 	a0, a1 := s.computeComposites(k, encGk, blindedElements, evaluatedElements)
 
 	var r *group.Scalar
@@ -94,7 +94,7 @@ func (s *Server) FullEvaluate(input, info []byte) []byte {
 	k := s.privateKey.Add(s.pTag(info))
 	t := p.Mult(k.Invert())
 
-	return s.hashTranscript(input, info, t.Bytes())
+	return s.hashTranscript(serializePoint(p, pointLength(s.id)), info, serializePoint(t, scalarLength(s.id)))
 }
 
 // VerifyFinalize takes the client input (the un-blinded element) and the client's finalize() output,
@@ -123,7 +123,7 @@ func (s *Server) PrivateKey() []byte {
 
 // PublicKey returns the server's serialized public key.
 func (s *Server) PublicKey() []byte {
-	return s.publicKey.Bytes()
+	return serializePoint(s.publicKey, pointLength(s.id))
 }
 
 // Ciphersuite returns the cipher suite used in s' instance.

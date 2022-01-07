@@ -3,7 +3,7 @@ module github.com/bytemare/voprf
 go 1.17
 
 require (
-	github.com/bytemare/crypto v0.2.4-0.20211009235919-640b50d9d1cd
+	github.com/bytemare/crypto v0.2.4
 	github.com/stretchr/testify v1.7.0
 )
 
@@ -14,7 +14,7 @@ require (
 	github.com/davecgh/go-spew v1.1.0 // indirect
 	github.com/gtank/ristretto255 v0.1.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272 // indirect
-	golang.org/x/sys v0.0.0-20210915083310-ed5796bab164 // indirect
+	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3 // indirect
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )

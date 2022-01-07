@@ -51,6 +51,7 @@ func (e *Evaluation) Deserialize(input []byte) error {
 	}
 
 	e.Elements = make([][]byte, ne)
+
 	offset := 4
 	for i := 0; i < ne; i++ {
 		e.Elements[i] = make([]byte, lp)
@@ -123,7 +124,7 @@ func (e *evaluation) serialize(c Ciphersuite) *Evaluation {
 	}
 
 	for i, el := range e.elements {
-		ev.Elements[i] = el.Bytes()
+		ev.Elements[i] = serializePoint(el, pointLength(c))
 	}
 
 	if e.proofC != nil {
