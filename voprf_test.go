@@ -1,6 +1,7 @@
 package voprf
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,8 +13,6 @@ import (
 	"testing"
 
 	"github.com/bytemare/crypto/group"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/bytemare/crypto/hash"
 )
 
@@ -270,7 +269,7 @@ func testBlind(t *testing.T, client *Client, input, blind, expected []byte) {
 
 	blinded := client.Blind(input)
 
-	if !assert.Equal(t, expected, blinded) {
+	if !bytes.Equal(expected, blinded) {
 		t.Fatal("unexpected blinded output")
 	}
 }
@@ -281,8 +280,10 @@ func testBlindBatchWithBlinds(t *testing.T, client *Client, inputs, blinds, outp
 		t.Fatal(err)
 	}
 
-	if !assert.Equal(t, outputs, blinded) {
-		t.Fatal("unexpected blinded output")
+	for i, o := range outputs {
+		if !bytes.Equal(o, blinded[i]) {
+			t.Fatal("unexpected blinded output")
+		}
 	}
 }
 
@@ -305,7 +306,7 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 			t.Fatal(err)
 		}
 
-		if !assert.Equal(t, test.EvaluationElement[0], ev.Elements[0]) {
+		if !bytes.Equal(test.EvaluationElement[0], ev.Elements[0]) {
 			t.Fatal("unexpected evaluation element")
 		}
 	} else {
@@ -314,18 +315,20 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 			t.Fatal(err)
 		}
 
-		if !assert.Equal(t, test.EvaluationElement, ev.Elements) {
-			t.Fatal("unexpected evaluation elements")
+		for i, e := range test.EvaluationElement {
+			if !bytes.Equal(e, ev.Elements[i]) {
+				t.Fatal("unexpected evaluation elements")
+			}
 		}
 	}
 
 	// Set proofs
 	if mode == Verifiable {
-		if !assert.Equal(t, test.ProofC, ev.ProofC) {
+		if !bytes.Equal(test.ProofC, ev.ProofC) {
 			t.Errorf("unexpected c proof\n\t%v\n\t%v", hex.EncodeToString(test.ProofC), hex.EncodeToString(ev.ProofC))
 		}
 
-		if !assert.Equal(t, test.ProofS, ev.ProofS) {
+		if !bytes.Equal(test.ProofS, ev.ProofS) {
 			t.Errorf("unexpected s proof: %s", hex.EncodeToString(test.ProofS))
 		}
 	}
@@ -337,8 +340,8 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 			t.Fatal(err)
 		}
 
-		if !assert.Equal(t, test.Output[0], output, "finalize() output is not valid.") {
-			t.Fatal("not equal")
+		if !bytes.Equal(test.Output[0], output) {
+			t.Fatal("finalize() output is not valid.")
 		}
 
 		if !server.VerifyFinalize(test.Input[0], test.Info, output) {
@@ -350,8 +353,10 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 			t.Fatal(err)
 		}
 
-		if !assert.Equal(t, test.Output, output, "finalizeBatch() output is not valid.") {
-			t.Fatal("not equal")
+		for i, o := range test.Output {
+			if !bytes.Equal(o, output[i]) {
+				t.Fatal("finalizeBatch() output is not valid.")
+			}
 		}
 
 		if !server.VerifyFinalizeBatch(test.Input, output, test.Info) {
@@ -405,8 +410,8 @@ func (v vector) test(t *testing.T) {
 				t.Fatalf("failed on setting up server %q\nvector value (%d) %v\ndecoded (%d) %v\n", err, len(v.SkSm), v.SkSm, len(privKey), privKey)
 			}
 
-			if !assert.Equal(t, string(dst), string(server.dst(hash2groupDSTPrefix)), "GroupDST output is not valid.") {
-				t.Fatal("DST not equal")
+			if string(dst) != string(server.dst(hash2groupDSTPrefix)) {
+				t.Fatal("GroupDST output is not valid.")
 			}
 
 			client, err := getClient(suite, mode, serverPublicKey)
@@ -414,8 +419,8 @@ func (v vector) test(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if !assert.Equal(t, string(dst), string(client.dst(hash2groupDSTPrefix)), "GroupDST output is not valid.") {
-				t.Fatal("DST not equal")
+			if string(dst) != string(client.dst(hash2groupDSTPrefix)) {
+				t.Fatal("GroupDST output is not valid.")
 			}
 
 			// test protocol execution
