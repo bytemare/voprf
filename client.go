@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree or at
+// https://spdx.org/licenses/MIT.html
+
 package voprf
 
 import (
@@ -75,7 +83,7 @@ func (c *Client) Import(state *State) error {
 		return errStateDiffBlind
 	}
 
-	if state.Mode == Verifiable && state.ServerPublicKey == nil {
+	if state.Mode == VOPRF && state.ServerPublicKey == nil {
 		return errStateNoPubKey
 	}
 
@@ -105,7 +113,7 @@ func (c *Client) Import(state *State) error {
 
 		c.blindedElement[i], err = c.group.NewElement().Decode(state.Blinded[i])
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid blinded element: %w", err)
 		}
 	}
 
@@ -134,14 +142,32 @@ func (c *Client) initBlinding(length int) error {
 	return nil
 }
 
-func (c *Client) verifyProof(info []byte, ev *evaluation) bool {
-	tag := c.pTag(info)
-	gk := c.id.Group().Base().Mult(tag).Add(c.serverPublicKey)
-	encGk := lengthPrefixEncode(serializePoint(gk, pointLength(c.id)))
-	a0, a1 := c.computeComposites(nil, encGk, c.blindedElement, ev.elements)
+func (c *Client) verifyProof(ev *evaluation, info []byte) error {
+	if ev.proofC == nil {
+		return errNilProofC
+	}
+
+	if ev.proofS == nil {
+		return errNilProofS
+	}
+
+	var pk *group.Point
+	var cs, ds []*group.Point
+
+	if c.mode == VOPRF {
+		cs, ds = c.blindedElement, ev.elements
+		pk = c.serverPublicKey
+	} else { // POPRF
+		cs, ds = ev.elements, c.blindedElement
+		tag := c.pTag(info)
+		pk = c.id.Group().Base().Mult(tag).Add(c.serverPublicKey)
+	}
+
+	encGk := lengthPrefixEncode(serializePoint(pk, pointLength(c.id)))
+	a0, a1 := c.computeComposites(nil, encGk, cs, ds)
 
 	ab := c.group.Base().Mult(ev.proofS)
-	ap := gk.Mult(ev.proofC)
+	ap := pk.Mult(ev.proofC)
 	a2 := ab.Add(ap)
 
 	bm := a0.Mult(ev.proofS)
@@ -149,7 +175,11 @@ func (c *Client) verifyProof(info []byte, ev *evaluation) bool {
 	a3 := bm.Add(bz)
 	expectedC := c.challenge(encGk, a0, a1, a2, a3)
 
-	return ctEqual(expectedC.Bytes(), ev.proofC.Bytes())
+	if !ctEqual(expectedC.Bytes(), ev.proofC.Bytes()) {
+		return errProofFailed
+	}
+
+	return nil
 }
 
 func (c *Client) innerBlind(input []byte, index int) {
@@ -159,6 +189,10 @@ func (c *Client) innerBlind(input []byte, index int) {
 
 	c.input[index] = input
 	c.blindedElement[index] = c.HashToGroup(input).Mult(c.blind[index])
+}
+
+func (c *Client) unblind(evaluated *group.Point, blind *group.Scalar) *group.Point {
+	return evaluated.InvertMult(blind)
 }
 
 // Blind blinds, or masks, the input with a preset or new random blinding element.
@@ -223,8 +257,21 @@ func (c *Client) BlindBatchWithBlinds(blinds, input [][]byte) ([][]byte, error) 
 	return blindedElements, nil
 }
 
-func (c *Client) unblind(evaluated *group.Point, blind *group.Scalar) *group.Point {
-	return evaluated.InvertMult(blind)
+func (o *oprf) hashTranscript(input, unblinded []byte) []byte {
+	encInput := lengthPrefixEncode(input)
+	encElement := lengthPrefixEncode(unblinded)
+	encDST := []byte(dstFinalize)
+
+	return o.hash.Hash(encInput, encElement, encDST)
+}
+
+func (o *oprf) hashTranscriptInfo(input, info, unblinded []byte) []byte {
+	encInput := lengthPrefixEncode(input)
+	encInfo := lengthPrefixEncode(info)
+	encElement := lengthPrefixEncode(unblinded)
+	encDST := []byte(dstFinalize)
+
+	return o.hash.Hash(encInput, encInfo, encElement, encDST)
 }
 
 // Finalize finalizes the protocol execution by verifying the proof if necessary,
@@ -254,17 +301,9 @@ func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 		return nil, errInvalidNumElements
 	}
 
-	if c.mode == Verifiable {
-		if ev.proofC == nil {
-			return nil, errNilProofC
-		}
-
-		if ev.proofS == nil {
-			return nil, errNilProofS
-		}
-
-		if !c.verifyProof(info, ev) {
-			return nil, errProofFailed
+	if c.mode == VOPRF || c.mode == POPRF {
+		if err := c.verifyProof(ev, info); err != nil {
+			return nil, err
 		}
 	}
 
@@ -272,9 +311,13 @@ func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 
 	for i, ee := range ev.elements {
 		u := c.unblind(ee, c.blind[i])
-		//pi := c.HashToGroup(c.input[i])
-		//out[i] = c.hashTranscript(serializePoint(pi, pointLength(c.id)), info, serializePoint(u, pointLength(c.id)))
-		out[i] = c.hashTranscript(c.input[i], info, serializePoint(u, pointLength(c.id)))
+		// pi := c.HashToGroup(c.input[i])
+		// out[i] = c.hashTranscriptInfo(serializePoint(pi, pointLength(c.id)), info, serializePoint(u, pointLength(c.id)))
+		if c.mode == OPRF || c.mode == VOPRF {
+			out[i] = c.hashTranscript(c.input[i], serializePoint(u, pointLength(c.id)))
+		} else {
+			out[i] = c.hashTranscriptInfo(c.input[i], info, serializePoint(u, pointLength(c.id)))
+		}
 	}
 
 	return out, nil

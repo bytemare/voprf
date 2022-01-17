@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree or at
+// https://spdx.org/licenses/MIT.html
+
 package voprf
 
 import (
@@ -34,9 +42,9 @@ func testExport(t *testing.T, client *Client, export *State) {
 //func TestClient_Export(t *testing.T) {
 //	suite := RistrettoSha512
 //	input := []byte("input")
-//	server, _ := suite.Server(nil)
+//	server, _ := suite.OPRFServer(nil)
 //	serverPubKey := server.PublicKey()
-//	client, _ := suite.Client(serverPubKey)
+//	client, _ := suite.OPRFClient(serverPubKey)
 //	client.Blind(input)
 //
 //	x := client.Export()
@@ -48,9 +56,9 @@ func testExport(t *testing.T, client *Client, export *State) {
 //	suite := RistrettoSha512
 //	enc := encoding.JSON
 //	input := []byte("input")
-//	server, _ := suite.Server(nil)
+//	server, _ := suite.OPRFServer(nil)
 //	serverPubKey := server.PublicKey()
-//	client, _ := suite.Client(serverPubKey)
+//	client, _ := suite.OPRFClient(serverPubKey)
 //	client.Blind(input)
 //	export := client.Export()
 //
@@ -71,7 +79,7 @@ func testExport(t *testing.T, client *Client, export *State) {
 //		t.Fatal("Export encoding/decoding failed.")
 //	}
 //
-//	clientCopy, _ := P256Sha256.Client(nil)
+//	clientCopy, _ := P256Sha256.OPRFClient(nil)
 //	if err := clientCopy.Import(export2); err != nil {
 //		panic(err)
 //	}

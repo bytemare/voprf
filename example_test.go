@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree or at
+// https://spdx.org/licenses/MIT.html
+
 package voprf
 
 import (
@@ -10,12 +18,12 @@ func exchangeWithServer(blinded []byte, verifiable bool) []byte {
 	privateKey, _ := hex.DecodeString("8132542d5ed08594e7522b5eac6bee38bab5868996c25a3fd2a7739be1856b04")
 
 	if verifiable {
-		server, err = RistrettoSha512.VerifiableServer(privateKey)
+		server, err = RistrettoSha512.VOPRFServer(privateKey)
 		if err != nil {
 			panic(err)
 		}
 	} else {
-		server, err = RistrettoSha512.Server(privateKey)
+		server, err = RistrettoSha512.OPRFServer(privateKey)
 		if err != nil {
 			panic(err)
 		}
@@ -35,7 +43,7 @@ func ExampleClient() {
 	input := []byte("input")
 
 	// Set up a new client. Not indicating a server public key indicates we don't use the verifiable mode.
-	client := RistrettoSha512.Client()
+	client := RistrettoSha512.OPRFClient()
 
 	// The client blinds the initial input, and sends this to the server.
 	blinded := client.Blind(input)
@@ -64,7 +72,7 @@ func ExampleVerifiableClient() {
 
 	// Instantiate a new client with the preprocessed values.
 	// (Note that a nil public key here will switch in the base mode)
-	client, err := ciphersuite.VerifiableClient(serverPubKey)
+	client, err := ciphersuite.VOPRFClient(serverPubKey)
 	if err != nil {
 		panic(err)
 	}
@@ -95,7 +103,7 @@ func ExampleBaseServer() {
 	blinded, _ := hex.DecodeString("7eaf3d7cbe43d54637274342ce53578b2aba836f297f4f07997a6e1dced1c058")
 
 	// Set up a new server. A private key is automatically created if none is given.
-	server, err := RistrettoSha512.Server(nil)
+	server, err := RistrettoSha512.OPRFServer(nil)
 	if err != nil {
 		panic(err)
 	}
@@ -118,7 +126,7 @@ func ExampleVerifiableServer() {
 	blinded, _ := hex.DecodeString("7eaf3d7cbe43d54637274342ce53578b2aba836f297f4f07997a6e1dced1c058")
 
 	// Set up a new server.
-	server, err := RistrettoSha512.VerifiableServer(privateKey)
+	server, err := RistrettoSha512.VOPRFServer(privateKey)
 	if err != nil {
 		panic(err)
 	}

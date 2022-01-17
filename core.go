@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree or at
+// https://spdx.org/licenses/MIT.html
+
 package voprf
 
 import (
@@ -9,11 +17,11 @@ import (
 )
 
 const (
-	dstChallengePrefix = "Challenge-"
-	dstCompositePrefix = "Composite-"
-	dstFinalizePrefix  = "Finalize-"
-	dstSeedPrefix      = "Seed-"
-	dstContext         = "Context-"
+	dstComposite = "Composite"
+	dstChallenge = "Challenge"
+	dstFinalize  = "Finalize"
+	dstSeed      = "Seed-"
+	dstContext   = "Info"
 
 	p256PointLength  = 33
 	p256ScalarLength = 32
@@ -79,6 +87,7 @@ func serializePoint(e *group.Point, length int) []byte {
 func i2osp2(value int) []byte {
 	out := make([]byte, 2)
 	binary.BigEndian.PutUint16(out, uint16(value))
+
 	return out
 }
 
@@ -90,46 +99,42 @@ func ctEqual(a, b []byte) bool {
 	return subtle.ConstantTimeCompare(a, b) == 1
 }
 
-func (o *oprf) ccScalar(encSeed []byte, index int, blindedElement, evaluatedElement *group.Point, encCompositeDST []byte) *group.Scalar {
+func (o *oprf) ccScalar(encSeed []byte, index int, ci, di *group.Point) *group.Scalar {
 	input := utils.Concatenate(encSeed, i2osp2(index),
-		lengthPrefixEncode(serializePoint(blindedElement, pointLength(o.id))),
-		lengthPrefixEncode(serializePoint(evaluatedElement, pointLength(o.id))),
-		encCompositeDST)
+		lengthPrefixEncode(serializePoint(ci, pointLength(o.id))),
+		lengthPrefixEncode(serializePoint(di, pointLength(o.id))),
+		[]byte(dstComposite))
 
 	return o.HashToScalar(input)
 }
 
-func (o *oprf) computeCompositesFast(k *group.Scalar, encSeed, encCompositeDST []byte,
-	blindedElements, evaluatedElements []*group.Point) (m, z *group.Point) {
+func (o *oprf) computeCompositesFast(k *group.Scalar, encSeed []byte, cs, ds []*group.Point) (m, z *group.Point) {
 	m = o.group.Identity()
 
-	for i, evaluated := range evaluatedElements {
-		di := o.ccScalar(encSeed, i, evaluated, blindedElements[i], encCompositeDST)
-		m = evaluated.Mult(di).Add(m)
+	for i, ci := range cs {
+		di := o.ccScalar(encSeed, i, ci, ds[i])
+		m = ci.Mult(di).Add(m)
 	}
 
 	return m, m.Mult(k)
 }
 
-func (o *oprf) computeCompositesClient(encSeed, encCompositeDST []byte,
-	blindedElements, evaluatedElements []*group.Point) (m, z *group.Point) {
+func (o *oprf) computeCompositesClient(encSeed []byte, cs, ds []*group.Point) (m, z *group.Point) {
 	m = o.group.Identity()
 	z = o.group.Identity()
 
-	for i, evaluated := range evaluatedElements {
-		di := o.ccScalar(encSeed, i, evaluated, blindedElements[i], encCompositeDST)
-		m = evaluated.Mult(di).Add(m)
-		z = blindedElements[i].Mult(di).Add(z)
+	for i, ci := range cs {
+		di := o.ccScalar(encSeed, i, ci, ds[i])
+		m = ci.Mult(di).Add(m)
+		z = ds[i].Mult(di).Add(z)
 	}
 
 	return m, z
 }
 
-func (o *oprf) computeComposites(k *group.Scalar, encGk []byte,
-	blindedElements, evaluatedElements []*group.Point) (m, z *group.Point) {
+func (o *oprf) computeComposites(k *group.Scalar, encGk []byte, cs, ds []*group.Point) (m, z *group.Point) {
 	// DST
-	encSeedDST := lengthPrefixEncode(o.dst(dstSeedPrefix))
-	encCompositeDST := lengthPrefixEncode(o.dst(dstCompositePrefix))
+	encSeedDST := lengthPrefixEncode(o.dst(dstSeed))
 
 	// build seed
 	seed := o.hash.Hash(encGk, encSeedDST)
@@ -137,20 +142,10 @@ func (o *oprf) computeComposites(k *group.Scalar, encGk []byte,
 
 	// This means where calling from the server, and can optimize computation of Z, since Zi = sks * Mi
 	if k != nil {
-		return o.computeCompositesFast(k, encSeed, encCompositeDST, blindedElements, evaluatedElements)
+		return o.computeCompositesFast(k, encSeed, cs, ds)
 	}
 
-	return o.computeCompositesClient(encSeed, encCompositeDST, blindedElements, evaluatedElements)
-}
-
-func (o *oprf) hashTranscript(input, info, unblinded []byte) []byte {
-	finalizeDST := o.dst(dstFinalizePrefix)
-	encInput := lengthPrefixEncode(input)
-	encInfo := lengthPrefixEncode(info)
-	encElement := lengthPrefixEncode(unblinded)
-	encDST := lengthPrefixEncode(finalizeDST)
-
-	return o.hash.Hash(encInput, encInfo, encElement, encDST)
+	return o.computeCompositesClient(encSeed, cs, ds)
 }
 
 func (o *oprf) challenge(encPks []byte, a0, a1, a2, a3 *group.Point) *group.Scalar {
@@ -158,7 +153,7 @@ func (o *oprf) challenge(encPks []byte, a0, a1, a2, a3 *group.Point) *group.Scal
 	encA1 := lengthPrefixEncode(serializePoint(a1, pointLength(o.id)))
 	encA2 := lengthPrefixEncode(serializePoint(a2, pointLength(o.id)))
 	encA3 := lengthPrefixEncode(serializePoint(a3, pointLength(o.id)))
-	encDST := lengthPrefixEncode(o.dst(dstChallengePrefix))
+	encDST := []byte(dstChallenge)
 	input := utils.Concatenate(encPks, encA0, encA1, encA2, encA3, encDST)
 
 	return o.HashToScalar(input)

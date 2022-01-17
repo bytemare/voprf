@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree or at
+// https://spdx.org/licenses/MIT.html
+
 package voprf
 
 import (
@@ -195,7 +203,7 @@ func hashToHash(h string) hash.Identifier {
 
 func (v vector) checkParams(t *testing.T) {
 	// Check mode
-	if v.Mode != Base && v.Mode != Verifiable {
+	if v.Mode != OPRF && v.Mode != VOPRF && v.Mode != POPRF {
 		t.Fatalf("invalid mode %v", v.Mode)
 	}
 
@@ -239,10 +247,12 @@ func getPreprocessedBlind(c Ciphersuite, serverPublicKey []byte, blinds [][]byte
 
 func getClient(c Ciphersuite, mode Mode, serverPublicKey []byte) (*Client, error) {
 	switch mode {
-	case Base:
-		return c.Client(), nil
-	case Verifiable:
-		return c.VerifiableClient(serverPublicKey)
+	case OPRF:
+		return c.OPRFClient(), nil
+	case VOPRF:
+		return c.VOPRFClient(serverPublicKey)
+	case POPRF:
+		return c.POPRFClient(serverPublicKey)
 	default:
 		return nil, errors.New("invalid blinding")
 	}
@@ -250,10 +260,12 @@ func getClient(c Ciphersuite, mode Mode, serverPublicKey []byte) (*Client, error
 
 func getServer(c Ciphersuite, mode Mode, privateKey []byte) (*Server, error) {
 	switch mode {
-	case Base:
-		return c.Server(privateKey)
-	case Verifiable:
-		return c.VerifiableServer(privateKey)
+	case OPRF:
+		return c.OPRFServer(privateKey)
+	case VOPRF:
+		return c.VOPRFServer(privateKey)
+	case POPRF:
+		return c.POPRFServer(privateKey)
 	default:
 		return nil, errors.New("invalid mode")
 	}
@@ -290,14 +302,14 @@ func testBlindBatchWithBlinds(t *testing.T, client *Client, inputs, blinds, outp
 func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *test) {
 	var err error
 
-	// Client Blinding
+	// OPRFClient Blinding
 	if test.Batch == 1 {
 		testBlind(t, client, test.Input[0], test.Blind[0], test.BlindedElement[0])
 	} else {
 		testBlindBatchWithBlinds(t, client, test.Input, test.Blind, test.BlindedElement)
 	}
 
-	// Server evaluating
+	// OPRFServer evaluating
 	var ev *Evaluation
 	server.nonceR = test.NonceR
 	if test.Batch == 1 {
@@ -322,18 +334,18 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 		}
 	}
 
-	// Set proofs
-	if mode == Verifiable {
+	// Verify proofs
+	if mode == VOPRF || mode == POPRF {
 		if !bytes.Equal(test.ProofC, ev.ProofC) {
-			t.Errorf("unexpected c proof\n\t%v\n\t%v", hex.EncodeToString(test.ProofC), hex.EncodeToString(ev.ProofC))
+			t.Errorf("unexpected c proof\n\twant %v\n\tgot  %v", hex.EncodeToString(test.ProofC), hex.EncodeToString(ev.ProofC))
 		}
 
 		if !bytes.Equal(test.ProofS, ev.ProofS) {
-			t.Errorf("unexpected s proof: %s", hex.EncodeToString(test.ProofS))
+			t.Errorf("unexpected s proof\n\twant %v\n\tgot  %v", hex.EncodeToString(test.ProofS), hex.EncodeToString(ev.ProofS))
 		}
 	}
 
-	// Client finalize
+	// OPRFClient finalize
 	if test.Batch == 1 {
 		output, err := client.Finalize(ev, test.Info)
 		if err != nil {
@@ -379,7 +391,7 @@ func (v vector) test(t *testing.T) {
 	}
 
 	var serverPublicKey []byte
-	if mode == Verifiable {
+	if mode == VOPRF || mode == POPRF {
 		pksm, err := hex.DecodeString(v.PkSm)
 		if err != nil {
 			t.Fatalf("error decoding public key %v", err)
@@ -460,7 +472,7 @@ func TestVOPRF(t *testing.T) {
 					continue
 				}
 
-				t.Run(tv.SuiteName, tv.test)
+				t.Run(string(tv.Mode)+" - "+tv.SuiteName, tv.test)
 			}
 			return nil
 		}); err != nil {

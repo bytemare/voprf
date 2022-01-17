@@ -1,19 +1,32 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree or at
+// https://spdx.org/licenses/MIT.html
+
 package voprf
 
 import (
+	"fmt"
+
 	"github.com/bytemare/crypto/group"
 	"github.com/bytemare/crypto/hash"
 )
 
-// Mode distinguishes between the OPRF base mode and the Verifiable mode.
+// Mode distinguishes between the OPRF base mode and the VOPRF mode.
 type Mode byte
 
 const (
-	// Base identifies the OPRF non-verifiable, base mode.
-	Base Mode = iota
+	// OPRF identifies the base mode.
+	OPRF Mode = iota
 
-	// Verifiable identifies the OPRF verifiable mode.
-	Verifiable
+	// VOPRF identifies the verifiable mode.
+	VOPRF
+
+	// POPRF identifies the partially-oblivious mode.
+	POPRF
 )
 
 // Ciphersuite identifies the OPRF compatible cipher suite to be used.
@@ -137,9 +150,8 @@ func (o *oprf) dst(prefix string) []byte {
 }
 
 func (o *oprf) pTag(info []byte) *group.Scalar {
-	context := make([]byte, 0, len(dstContext)+len(o.contextString)+2+len(info)) // dstContext + s.contextString + lengthPrefixEncode(info)
+	context := make([]byte, 0, len(dstContext)+2+len(info)) // dstContext + s.contextString + lengthPrefixEncode(info)
 	context = append(context, dstContext...)
-	context = append(context, o.contextString...)
 	context = append(context, lengthPrefixEncode(info)...)
 
 	return o.HashToScalar(context)
@@ -176,7 +188,7 @@ func (c Ciphersuite) client(mode Mode) *Client {
 func (c *Client) setServerPubkey(serverPublicKey []byte) error {
 	pub, err := c.group.NewElement().Decode(serverPublicKey)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid public key: %w", err)
 	}
 
 	c.serverPublicKey = pub
@@ -184,14 +196,24 @@ func (c *Client) setServerPubkey(serverPublicKey []byte) error {
 	return nil
 }
 
-// Client returns an OPRF client.
-func (c Ciphersuite) Client() *Client {
-	return c.client(Base)
+// OPRFClient returns an OPRF client.
+func (c Ciphersuite) OPRFClient() *Client {
+	return c.client(OPRF)
 }
 
-// VerifiableClient returns a Verifiable OPRF client.
-func (c Ciphersuite) VerifiableClient(serverPublicKey []byte) (*Client, error) {
-	client := c.client(Verifiable)
+// VOPRFClient returns a VOPRF client.
+func (c Ciphersuite) VOPRFClient(serverPublicKey []byte) (*Client, error) {
+	client := c.client(VOPRF)
+	if err := client.setServerPubkey(serverPublicKey); err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+// POPRFClient returns a POPRF client.
+func (c Ciphersuite) POPRFClient(serverPublicKey []byte) (*Client, error) {
+	client := c.client(POPRF)
 	if err := client.setServerPubkey(serverPublicKey); err != nil {
 		return nil, err
 	}
@@ -205,13 +227,13 @@ func (c Ciphersuite) server(mode Mode, privateKey []byte) (*Server, error) {
 	}
 
 	if privateKey != nil {
-		pk, err := s.group.NewScalar().Decode(privateKey)
+		sk, err := s.group.NewScalar().Decode(privateKey)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid private key: %w", err)
 		}
 
-		s.privateKey = pk
-		s.publicKey = s.group.Base().Mult(pk)
+		s.privateKey = sk
+		s.publicKey = s.group.Base().Mult(sk)
 	} else {
 		s.KeyGen()
 	}
@@ -219,16 +241,22 @@ func (c Ciphersuite) server(mode Mode, privateKey []byte) (*Server, error) {
 	return s, nil
 }
 
-// Server returns an OPRF server instantiated with the given encoded private key.
+// OPRFServer returns an OPRF server instantiated with the given encoded private key.
 // If privateKey is nil, a new private/public key pair is created.
-func (c Ciphersuite) Server(privateKey []byte) (*Server, error) {
-	return c.server(Base, privateKey)
+func (c Ciphersuite) OPRFServer(privateKey []byte) (*Server, error) {
+	return c.server(OPRF, privateKey)
 }
 
-// VerifiableServer returns a VOPRF server/prover instantiated with the given encoded private key.
+// VOPRFServer returns a VOPRF server/prover instantiated with the given encoded private key.
 // If privateKey is nil, a new private/public key pair is created.
-func (c Ciphersuite) VerifiableServer(privateKey []byte) (*Server, error) {
-	return c.server(Verifiable, privateKey)
+func (c Ciphersuite) VOPRFServer(privateKey []byte) (*Server, error) {
+	return c.server(VOPRF, privateKey)
+}
+
+// POPRFServer returns a POPRF server/prover instantiated with the given encoded private key.
+// If privateKey is nil, a new private/public key pair is created.
+func (c Ciphersuite) POPRFServer(privateKey []byte) (*Server, error) {
+	return c.server(POPRF, privateKey)
 }
 
 // String implements the Stringer() interface for the Ciphersuite.
