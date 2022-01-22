@@ -22,7 +22,7 @@ func testExport(t *testing.T, client *Client, export *State) {
 		t.Fatal("mode is not correct")
 	}
 
-	if !bytes.Equal(export.ServerPublicKey, client.serverPublicKey.Bytes()) {
+	if !bytes.Equal(export.ServerPublicKey, serializePoint(client.serverPublicKey, pointLength(client.id))) {
 		t.Fatal("blind is not correct")
 	}
 
@@ -33,7 +33,7 @@ func testExport(t *testing.T, client *Client, export *State) {
 	}
 
 	for i, b := range client.blind {
-		if !bytes.Equal(export.Blind[i], b.Bytes()) {
+		if !bytes.Equal(export.Blind[i], serializeScalar(b, scalarLength(client.id))) {
 			t.Fatalf("blind %d is not correct", i)
 		}
 	}

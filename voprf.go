@@ -34,21 +34,21 @@ type Ciphersuite byte
 
 const (
 	// RistrettoSha512 is the OPRF cipher suite of the Ristretto255 group and SHA-512.
-	RistrettoSha512 Ciphersuite = iota + 1
+	RistrettoSha512 Ciphersuite = 0x0001
 
 	// Decaf448Sha512 is the OPRF cipher suite of the Decaf448 group and SHA-512.
-	decaf448Sha512
+	decaf448Sha512 Ciphersuite = 0x0002
 
 	// P256Sha256 is the OPRF cipher suite of the NIST P-256 group and SHA-256.
-	P256Sha256
+	P256Sha256 Ciphersuite = 0x0003
 
 	// P384Sha384 is the OPRF cipher suite of the NIST P-384 group and SHA-384.
-	P384Sha384
+	P384Sha384 Ciphersuite = 0x0004
 
 	// P521Sha512 is the OPRF cipher suite of the NIST P-512 group and SHA-512.
-	P521Sha512
+	P521Sha512 Ciphersuite = 0x0005
 
-	maxID
+	maxID = 0x0006
 
 	sRistrettoSha512 = "RistrettoSha512"
 	sDecaf448Sha512  = "Decaf448Sha512"
@@ -166,8 +166,21 @@ func (o *oprf) new(mode Mode) *oprf {
 }
 
 // DeriveKeyPair deterministically generates a private and public key pair from input seed.
-func (o *oprf) DeriveKeyPair(seed, dst []byte) (*group.Scalar, *group.Point) {
-	s := o.group.HashToScalar(seed, dst)
+func (o *oprf) DeriveKeyPair(seed, info []byte) (*group.Scalar, *group.Point) {
+	dst := concatenate([]byte("DeriveKeyPair"), o.contextString)
+	deriveInput := concatenate(seed, lengthPrefixEncode(info))
+
+	var counter uint8
+	var s *group.Scalar
+
+	for s == nil || s.IsZero() {
+		if counter > 255 {
+			panic("")
+		}
+		s = o.group.HashToScalar(concatenate(deriveInput, []byte{byte(counter)}), dst)
+		counter++
+	}
+
 	return s, o.group.Base().Mult(s)
 }
 

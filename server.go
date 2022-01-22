@@ -9,6 +9,7 @@
 package voprf
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/bytemare/crypto/group"
@@ -21,6 +22,8 @@ type Server struct {
 	*oprf
 	nonceR []byte
 }
+
+var errZeroScalar = errors.New("inversion led to zero scalar")
 
 func (s *Server) randomScalar() (r *group.Scalar) {
 	if s.nonceR == nil {
@@ -73,7 +76,10 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 	if s.mode == POPRF {
 		context := s.pTag(info)
 		k = s.privateKey.Add(context)
-		scalar = k.Invert() // todo: check if scalar is zero, if yes raise error
+		scalar = k.Invert()
+		if scalar.IsZero() {
+			return nil, errZeroScalar
+		}
 	} else {
 		scalar = s.privateKey
 	}
@@ -108,7 +114,7 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 
 // FullEvaluate reproduces the full PRF but without the blinding operations, using the client's input.
 // This should output the same digest as the client's Finalize() function.
-func (s *Server) FullEvaluate(input, info []byte) []byte {
+func (s *Server) FullEvaluate(input, info []byte) ([]byte, error) {
 	p := s.HashToGroup(input)
 
 	var scalar *group.Scalar
@@ -119,23 +125,29 @@ func (s *Server) FullEvaluate(input, info []byte) []byte {
 		context := s.pTag(info)
 		k := s.privateKey.Add(context)
 		scalar = k.Invert()
+		if scalar.IsZero() {
+			return nil, errZeroScalar
+		}
 	}
 
 	t := p.Mult(scalar)
 
 	if s.mode == POPRF {
-		return s.hashTranscriptInfo(input, info, serializePoint(t, pointLength(s.id)))
+		return s.hashTranscriptInfo(input, info, serializePoint(t, pointLength(s.id))), nil
 	}
 
 	// return s.hashTranscriptInfo(serializePoint(p, pointLength(s.id)), info, serializePoint(t, scalarLength(s.id)))
 	// return s.hashTranscriptInfo(input, info, serializePoint(t, scalarLength(s.id)))
-	return s.hashTranscript(input, serializePoint(t, pointLength(s.id)))
+	return s.hashTranscript(input, serializePoint(t, pointLength(s.id))), nil
 }
 
 // VerifyFinalize takes the client input (the un-blinded element) and the client's finalize() output,
 // and returns whether it can match the client's output.
 func (s *Server) VerifyFinalize(input, info, output []byte) bool {
-	digest := s.FullEvaluate(input, info)
+	digest, err := s.FullEvaluate(input, info)
+	if err != nil {
+		return false
+	}
 	return ctEqual(digest, output)
 }
 
