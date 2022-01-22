@@ -2,7 +2,7 @@ module github.com/bytemare/voprf
 
 go 1.17
 
-require github.com/bytemare/crypto v0.2.5
+require github.com/bytemare/crypto v0.2.6-0.20220122024932-c4311f83ab34
 
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect

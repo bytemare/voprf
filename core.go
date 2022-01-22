@@ -13,7 +13,6 @@ import (
 	"encoding/binary"
 
 	"github.com/bytemare/crypto/group"
-	"github.com/bytemare/crypto/utils"
 )
 
 const (
@@ -100,7 +99,7 @@ func ctEqual(a, b []byte) bool {
 }
 
 func (o *oprf) ccScalar(encSeed []byte, index int, ci, di *group.Point) *group.Scalar {
-	input := utils.Concatenate(encSeed, i2osp2(index),
+	input := concatenate(encSeed, i2osp2(index),
 		lengthPrefixEncode(serializePoint(ci, pointLength(o.id))),
 		lengthPrefixEncode(serializePoint(di, pointLength(o.id))),
 		[]byte(dstComposite))
@@ -148,13 +147,36 @@ func (o *oprf) computeComposites(k *group.Scalar, encGk []byte, cs, ds []*group.
 	return o.computeCompositesClient(encSeed, cs, ds)
 }
 
+func concatenate(input ...[]byte) []byte {
+	if len(input) == 1 {
+		if len(input[0]) == 0 {
+			return nil
+		}
+
+		return input[0]
+	}
+
+	length := 0
+	for _, in := range input {
+		length += len(in)
+	}
+
+	buf := make([]byte, 0, length)
+
+	for _, in := range input {
+		buf = append(buf, in...)
+	}
+
+	return buf
+}
+
 func (o *oprf) challenge(encPks []byte, a0, a1, a2, a3 *group.Point) *group.Scalar {
 	encA0 := lengthPrefixEncode(serializePoint(a0, pointLength(o.id)))
 	encA1 := lengthPrefixEncode(serializePoint(a1, pointLength(o.id)))
 	encA2 := lengthPrefixEncode(serializePoint(a2, pointLength(o.id)))
 	encA3 := lengthPrefixEncode(serializePoint(a3, pointLength(o.id)))
 	encDST := []byte(dstChallenge)
-	input := utils.Concatenate(encPks, encA0, encA1, encA2, encA3, encDST)
+	input := concatenate(encPks, encA0, encA1, encA2, encA3, encDST)
 
 	return o.HashToScalar(input)
 }

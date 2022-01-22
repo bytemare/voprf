@@ -171,6 +171,8 @@ type vector struct {
 	DST       string       `json:"groupDST"`
 	Hash      string       `json:"hash"`
 	Mode      Mode         `json:"mode"`
+	KeyInfo   string       `json:"keyInfo"`
+	SksSeed   string       `json:"seed"`
 	PkSm      string       `json:"pkSm,omitempty"`
 	SkSm      string       `json:"skSm"`
 	SuiteID   Ciphersuite  `json:"suiteID"`
@@ -182,6 +184,8 @@ func hashToHash(h string) hash.Identifier {
 	switch h {
 	case "SHA256":
 		return hash.SHA256
+	case "SHA384":
+		return hash.SHA384
 	case "SHA512":
 		return hash.SHA512
 	case "SHA3-256":
@@ -416,6 +420,25 @@ func (v vector) test(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			// Test DeriveKeyPair
+			seed, err := hex.DecodeString(v.SksSeed)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			keyInfo, err := hex.DecodeString(v.KeyInfo)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			o := suites[suite].new(mode)
+
+			sks, _ := o.DeriveKeyPair(seed, keyInfo)
+			// log.Printf("sks %v", hex.EncodeToString(serializeScalar(sks, scalarLength(o.id))))
+			if !bytes.Equal(serializeScalar(sks, scalarLength(o.id)), privKey) {
+				t.Fatalf("DeriveKeyPair yields unexpected output\n\twant: %v\n\tgot : %v", privKey, serializeScalar(sks, scalarLength(o.id)))
+			}
+
 			// Set up a new server.
 			server, err := getServer(suite, mode, privKey)
 			if err != nil {
@@ -468,9 +491,9 @@ func TestVOPRF(t *testing.T) {
 					continue
 				}
 
-				if tv.SuiteName == "OPRF(P-384, SHA-384)" {
-					continue
-				}
+				//if tv.SuiteName == "OPRF(P-384, SHA-384)" {
+				//	continue
+				//}
 
 				t.Run(string(tv.Mode)+" - "+tv.SuiteName, tv.test)
 			}
