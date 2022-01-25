@@ -57,7 +57,10 @@ const (
 	sP521Sha512      = "P521Sha512"
 
 	// version is a string explicitly stating the version name.
-	version = "VOPRF08-"
+	version = "VOPRF09-"
+
+	// deriveKeyPairDST is the DST prefix for the DeriveKeyPair function.
+	deriveKeyPairDST = "DeriveKeyPair"
 
 	// hash2groupDSTPrefix is the DST prefix to use for HashToGroup operations.
 	hash2groupDSTPrefix = "HashToGroup-"
@@ -167,7 +170,7 @@ func (o *oprf) new(mode Mode) *oprf {
 
 // DeriveKeyPair deterministically generates a private and public key pair from input seed.
 func (o *oprf) DeriveKeyPair(seed, info []byte) (*group.Scalar, *group.Point) {
-	dst := concatenate([]byte("DeriveKeyPair"), o.contextString)
+	dst := concatenate([]byte(deriveKeyPairDST), o.contextString)
 	deriveInput := concatenate(seed, lengthPrefixEncode(info))
 
 	var counter uint8
