@@ -46,7 +46,7 @@ func ExampleClient() {
 	client := RistrettoSha512.OPRFClient()
 
 	// The client blinds the initial input, and sends this to the server.
-	blinded := client.Blind(input)
+	blinded := client.Blind(input, nil)
 
 	// Exchange with the server is not covered here. The following call is to mock an exchange with a server.
 	ev := exchangeWithServer(blinded, false)
@@ -78,7 +78,7 @@ func ExampleVerifiableClient() {
 	}
 
 	// The client blinds the initial input, and sends this to the server.
-	blinded := client.Blind(input)
+	blinded := client.Blind(input, nil)
 
 	// Exchange with the server is not covered here. The following call is to mock an exchange with a server.
 	ev := exchangeWithServer(blinded, true)

@@ -71,12 +71,12 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 	ev.elements = make([]*group.Point, len(blindedElements))
 
 	var blinded []*group.Point
-	var scalar, k *group.Scalar
+	var scalar, t *group.Scalar
 
 	if s.mode == POPRF {
 		context := s.pTag(info)
-		k = s.privateKey.Add(context)
-		scalar = k.Invert()
+		t = s.privateKey.Add(context)
+		scalar = t.Invert()
 		if scalar.IsZero() {
 			return nil, errZeroScalar
 		}
@@ -105,8 +105,8 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 	if s.mode == VOPRF {
 		ev.proofC, ev.proofS = s.generateProof(s.privateKey, s.publicKey, blinded, ev.elements)
 	} else if s.mode == POPRF {
-		gk := s.id.Group().Base().Mult(k)
-		ev.proofC, ev.proofS = s.generateProof(k, gk, ev.elements, blinded)
+		tweakedKey := s.group.Base().Mult(t)
+		ev.proofC, ev.proofS = s.generateProof(t, tweakedKey, ev.elements, blinded)
 	}
 
 	return ev.serialize(s.id), nil

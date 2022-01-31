@@ -20,7 +20,7 @@ const (
 	dstChallenge = "Challenge"
 	dstFinalize  = "Finalize"
 	dstSeed      = "Seed-"
-	dstContext   = "Info"
+	dstInfo      = "Info"
 
 	p256PointLength  = 33
 	p256ScalarLength = 32

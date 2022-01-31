@@ -20,11 +20,13 @@ var (
 	errNilProofC          = errors.New("c proof is nil or empty")
 	errNilProofS          = errors.New("s proof is nil or empty")
 	errInvalidNumElements = errors.New("invalid number of element ")
+	errInvalidInput       = errors.New("invalid input - OPRF input deterministically maps to the group identity element")
 )
 
 // Client represents the Client/Verifier party in a (V)OPRF protocol session,
 // and exposes relevant functions for its execution.
 type Client struct {
+	tweakedKey      *group.Point
 	serverPublicKey *group.Point
 	*oprf
 
@@ -142,7 +144,7 @@ func (c *Client) initBlinding(length int) error {
 	return nil
 }
 
-func (c *Client) verifyProof(ev *evaluation, info []byte) error {
+func (c *Client) verifyProof(ev *evaluation) error {
 	if ev.proofC == nil {
 		return errNilProofC
 	}
@@ -159,8 +161,7 @@ func (c *Client) verifyProof(ev *evaluation, info []byte) error {
 		pk = c.serverPublicKey
 	} else { // POPRF
 		cs, ds = ev.elements, c.blindedElement
-		tag := c.pTag(info)
-		pk = c.id.Group().Base().Mult(tag).Add(c.serverPublicKey)
+		pk = c.tweakedKey
 	}
 
 	encGk := lengthPrefixEncode(serializePoint(pk, pointLength(c.id)))
@@ -182,13 +183,30 @@ func (c *Client) verifyProof(ev *evaluation, info []byte) error {
 	return nil
 }
 
-func (c *Client) innerBlind(input []byte, index int) {
+func (c *Client) innerBlind(input, info []byte, index int) {
 	if c.blind[index] == nil {
 		c.blind[index] = c.group.NewScalar().Random()
 	}
 
 	c.input[index] = input
-	c.blindedElement[index] = c.HashToGroup(input).Mult(c.blind[index])
+
+	if c.mode == POPRF {
+		m := c.pTag(info)
+
+		t := c.group.Base().Mult(m).Add(c.serverPublicKey)
+		if t.IsIdentity() {
+			panic(errInvalidInput)
+		}
+
+		c.tweakedKey = t
+	}
+
+	p := c.HashToGroup(input)
+	if p.IsIdentity() {
+		panic(errInvalidInput)
+	}
+
+	c.blindedElement[index] = p.Mult(c.blind[index])
 }
 
 func (c *Client) unblind(evaluated *group.Point, blind *group.Scalar) *group.Point {
@@ -196,12 +214,12 @@ func (c *Client) unblind(evaluated *group.Point, blind *group.Scalar) *group.Poi
 }
 
 // Blind blinds, or masks, the input with a preset or new random blinding element.
-func (c *Client) Blind(input []byte) []byte {
+func (c *Client) Blind(input, info []byte) []byte {
 	if err := c.initBlinding(1); err != nil {
 		panic(err)
 	}
 
-	c.innerBlind(input, 0)
+	c.innerBlind(input, info, 0)
 
 	return serializePoint(c.blindedElement[0], pointLength(c.id))
 }
@@ -209,7 +227,7 @@ func (c *Client) Blind(input []byte) []byte {
 // BlindBatch allows blinding of batched input. If internal blinds are not set, new ones are created. In either case,
 // the blinds are returned, and can safely be ignored if not needed externally. Subsequent calls on unblinding functions
 // will automatically use the internal blinds, unless specified otherwise through unblindBatchWithBlinds().
-func (c *Client) BlindBatch(input [][]byte) (blinds, blindedElements [][]byte, err error) {
+func (c *Client) BlindBatch(input [][]byte, info []byte) (blinds, blindedElements [][]byte, err error) {
 	if err := c.initBlinding(len(input)); err != nil {
 		return nil, nil, err
 	}
@@ -218,7 +236,7 @@ func (c *Client) BlindBatch(input [][]byte) (blinds, blindedElements [][]byte, e
 	blindedElements = make([][]byte, len(input))
 
 	for i, in := range input {
-		c.innerBlind(in, i)
+		c.innerBlind(in, info, i)
 		// Only keep the blinds in a multiplicative mode
 		if c.blind[i] != nil {
 			blinds[i] = serializeScalar(c.blind[i], scalarLength(c.id))
@@ -231,7 +249,7 @@ func (c *Client) BlindBatch(input [][]byte) (blinds, blindedElements [][]byte, e
 }
 
 // BlindBatchWithBlinds enables blinding batches while specifying which blinds to use.
-func (c *Client) BlindBatchWithBlinds(blinds, input [][]byte) ([][]byte, error) {
+func (c *Client) BlindBatchWithBlinds(blinds, input [][]byte, info []byte) ([][]byte, error) {
 	if len(blinds) != len(input) {
 		return nil, errParamInputEqualLen
 	}
@@ -250,7 +268,7 @@ func (c *Client) BlindBatchWithBlinds(blinds, input [][]byte) ([][]byte, error) 
 
 		c.input[i] = input[i]
 		c.blind[i] = s
-		c.innerBlind(input[i], i)
+		c.innerBlind(input[i], info, i)
 		blindedElements[i] = serializePoint(c.blindedElement[i], pointLength(c.id))
 	}
 
@@ -302,7 +320,7 @@ func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 	}
 
 	if c.mode == VOPRF || c.mode == POPRF {
-		if err := c.verifyProof(ev, info); err != nil {
+		if err := c.verifyProof(ev); err != nil {
 			return nil, err
 		}
 	}

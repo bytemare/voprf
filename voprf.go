@@ -153,11 +153,11 @@ func (o *oprf) dst(prefix string) []byte {
 }
 
 func (o *oprf) pTag(info []byte) *group.Scalar {
-	context := make([]byte, 0, len(dstContext)+2+len(info)) // dstContext + s.contextString + lengthPrefixEncode(info)
-	context = append(context, dstContext...)
-	context = append(context, lengthPrefixEncode(info)...)
+	framedInfo := make([]byte, 0, len(dstInfo)+2+len(info)) // dstContext + s.contextString + lengthPrefixEncode(info)
+	framedInfo = append(framedInfo, dstInfo...)
+	framedInfo = append(framedInfo, lengthPrefixEncode(info)...)
 
-	return o.HashToScalar(context)
+	return o.HashToScalar(framedInfo)
 }
 
 func (o *oprf) new(mode Mode) *oprf {

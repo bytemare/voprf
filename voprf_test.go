@@ -275,7 +275,7 @@ func getServer(c Ciphersuite, mode Mode, privateKey []byte) (*Server, error) {
 	}
 }
 
-func testBlind(t *testing.T, client *Client, input, blind, expected []byte) {
+func testBlind(t *testing.T, client *Client, input, blind, expected, info []byte) {
 	s, err := client.group.NewScalar().Decode(blind)
 	if err != nil {
 		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", client.oprf.id, err))
@@ -283,15 +283,15 @@ func testBlind(t *testing.T, client *Client, input, blind, expected []byte) {
 
 	client.blind = []*group.Scalar{s}
 
-	blinded := client.Blind(input)
+	blinded := client.Blind(input, info)
 
 	if !bytes.Equal(expected, blinded) {
 		t.Fatal("unexpected blinded output")
 	}
 }
 
-func testBlindBatchWithBlinds(t *testing.T, client *Client, inputs, blinds, outputs [][]byte) {
-	blinded, err := client.BlindBatchWithBlinds(blinds, inputs)
+func testBlindBatchWithBlinds(t *testing.T, client *Client, inputs, blinds, outputs [][]byte, info []byte) {
+	blinded, err := client.BlindBatchWithBlinds(blinds, inputs, info)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,9 +308,9 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 
 	// OPRFClient Blinding
 	if test.Batch == 1 {
-		testBlind(t, client, test.Input[0], test.Blind[0], test.BlindedElement[0])
+		testBlind(t, client, test.Input[0], test.Blind[0], test.BlindedElement[0], test.Info)
 	} else {
-		testBlindBatchWithBlinds(t, client, test.Input, test.Blind, test.BlindedElement)
+		testBlindBatchWithBlinds(t, client, test.Input, test.Blind, test.BlindedElement, test.Info)
 	}
 
 	// OPRFServer evaluating
