@@ -24,4 +24,6 @@ var (
 	errStateNoPubKey  = errors.New("state in verifiable mode but no server public key")
 
 	errProofFailed = errors.New("proof fails")
+
+	errDecodeIdentity = errors.New("decoded point is the identity element")
 )

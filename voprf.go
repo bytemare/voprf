@@ -197,6 +197,28 @@ func (o *oprf) HashToScalar(data []byte) *group.Scalar {
 	return o.group.HashToScalar(data, o.dst(hash2scalarDSTPrefix))
 }
 
+func (o *oprf) DeserializeElement(data []byte) (*group.Point, error) {
+	p, err := o.group.NewElement().Decode(data)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode element : %w", err)
+	}
+
+	if p.IsIdentity() {
+		return nil, errDecodeIdentity
+	}
+
+	return p, nil
+}
+
+func (o *oprf) DeserializeScalar(data []byte) (*group.Scalar, error) {
+	s, err := o.group.NewScalar().Decode(data)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode scalar : %w", err)
+	}
+
+	return s, nil
+}
+
 func (c Ciphersuite) client(mode Mode) *Client {
 	return &Client{oprf: suites[c].new(mode)}
 }
