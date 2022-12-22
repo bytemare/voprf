@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bytemare/crypto/group"
-	"github.com/bytemare/crypto/hash"
+	group "github.com/bytemare/crypto"
+	"github.com/bytemare/hash"
 )
 
 type test struct {
@@ -72,23 +72,23 @@ func decodeBatch(nb int, in string) ([][]byte, error) {
 	return out, nil
 }
 
-func (t *test) Verify(suite Ciphersuite) error {
+func (t *test) Verify(suite Identifier) error {
 	g := suite.Group()
 
 	for i, b := range t.Blind {
-		if _, err := g.NewScalar().Decode(b); err != nil {
+		if err := g.NewScalar().Decode(b); err != nil {
 			return fmt.Errorf("blind %d decoding: %w", i, err)
 		}
 	}
 
 	for i, b := range t.BlindedElement {
-		if _, err := g.NewElement().Decode(b); err != nil {
+		if err := g.NewElement().Decode(b); err != nil {
 			return fmt.Errorf("blinded element %d decoding: %w", i, err)
 		}
 	}
 
 	for i, b := range t.EvaluationElement {
-		if _, err := g.NewElement().Decode(b); err != nil {
+		if err := g.NewElement().Decode(b); err != nil {
 			return fmt.Errorf("evaluation element %d decoding: %w", i, err)
 		}
 	}
@@ -168,16 +168,15 @@ func (tv *testVector) Decode() (*test, error) {
 }
 
 type vector struct {
-	DST       string       `json:"groupDST"`
-	Hash      string       `json:"hash"`
-	Mode      Mode         `json:"mode"`
-	KeyInfo   string       `json:"keyInfo"`
-	SksSeed   string       `json:"seed"`
-	PkSm      string       `json:"pkSm,omitempty"`
-	SkSm      string       `json:"skSm"`
-	SuiteID   Ciphersuite  `json:"suiteID"`
-	SuiteName string       `json:"suiteName"`
-	Vectors   []testVector `json:"vectors,omitempty"`
+	DST        string       `json:"groupDST"`
+	Hash       string       `json:"hash"`
+	Mode       Mode         `json:"mode"`
+	KeyInfo    string       `json:"keyInfo"`
+	SksSeed    string       `json:"seed"`
+	PkSm       string       `json:"pkSm,omitempty"`
+	SkSm       string       `json:"skSm"`
+	Identifier Identifier   `json:"identifier"`
+	Vectors    []testVector `json:"vectors,omitempty"`
 }
 
 func hashToHash(h string) hash.Identifier {
@@ -192,9 +191,9 @@ func hashToHash(h string) hash.Identifier {
 		return hash.SHA3_256
 	case "SHA3-512":
 		return hash.SHA3_512
-	case "SHAKE128":
+	case "SHAKE_128":
 		return hash.SHAKE128
-	case "SHAKE256":
+	case "SHAKE_256":
 		return hash.SHAKE256
 	case "BLAKE2XB":
 		return hash.BLAKE2XB
@@ -222,13 +221,13 @@ func (v vector) checkParams(t *testing.T) {
 	}
 
 	// Check cipher suite
-	if v.SuiteID == 0 || v.SuiteID >= maxID {
-		t.Fatalf("invalid cipher suite %v / %v", v.SuiteID, v.SuiteName)
+	if v.Identifier == "" {
+		t.Fatalf("invalid cipher suite %v", v.Identifier)
 	}
 }
 
 /*
-func getPreprocessedBlind(c Ciphersuite, serverPublicKey []byte, blinds [][]byte) (*PreprocessedBlind, error) {
+func getPreprocessedBlind(c Identifier, serverPublicKey []byte, blinds [][]byte) (*PreprocessedBlind, error) {
 	preprocessed, err := c.PreprocessWithBlinds(blinds, serverPublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("preprocess: %w", err)
@@ -249,7 +248,7 @@ func getPreprocessedBlind(c Ciphersuite, serverPublicKey []byte, blinds [][]byte
 
 */
 
-func getClient(c Ciphersuite, mode Mode, serverPublicKey []byte) (*Client, error) {
+func getClient(c Identifier, mode Mode, serverPublicKey []byte) (*Client, error) {
 	switch mode {
 	case OPRF:
 		return c.OPRFClient(), nil
@@ -262,7 +261,7 @@ func getClient(c Ciphersuite, mode Mode, serverPublicKey []byte) (*Client, error
 	}
 }
 
-func getServer(c Ciphersuite, mode Mode, privateKey []byte) (*Server, error) {
+func getServer(c Identifier, mode Mode, privateKey []byte) (*Server, error) {
 	switch mode {
 	case OPRF:
 		return c.OPRFServer(privateKey)
@@ -276,8 +275,8 @@ func getServer(c Ciphersuite, mode Mode, privateKey []byte) (*Server, error) {
 }
 
 func testBlind(t *testing.T, client *Client, input, blind, expected, info []byte) {
-	s, err := client.group.NewScalar().Decode(blind)
-	if err != nil {
+	s := client.group.NewScalar()
+	if err := s.Decode(blind); err != nil {
 		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", client.oprf.id, err))
 	}
 
@@ -323,7 +322,9 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 		}
 
 		if !bytes.Equal(test.EvaluationElement[0], ev.Elements[0]) {
-			t.Fatal("unexpected evaluation element")
+			t.Fatalf("unexpected evaluation element.\nGot : %v\nWant: %v",
+				hex.EncodeToString(ev.Elements[0]),
+				hex.EncodeToString(test.EvaluationElement[0]))
 		}
 	} else {
 		ev, err = server.EvaluateBatch(test.BlindedElement, test.Info)
@@ -333,7 +334,9 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 
 		for i, e := range test.EvaluationElement {
 			if !bytes.Equal(e, ev.Elements[i]) {
-				t.Fatal("unexpected evaluation elements")
+				t.Fatalf("unexpected evaluation element.\nGot : %v\nWant: %v",
+					hex.EncodeToString(ev.Elements[i]),
+					hex.EncodeToString(e))
 			}
 		}
 	}
@@ -341,11 +344,19 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 	// Verify proofs
 	if mode == VOPRF || mode == POPRF {
 		if !bytes.Equal(test.ProofC, ev.ProofC) {
-			t.Errorf("unexpected c proof\n\twant %v\n\tgot  %v", hex.EncodeToString(test.ProofC), hex.EncodeToString(ev.ProofC))
+			t.Errorf(
+				"unexpected c proof\n\twant %v\n\tgot  %v",
+				hex.EncodeToString(test.ProofC),
+				hex.EncodeToString(ev.ProofC),
+			)
 		}
 
 		if !bytes.Equal(test.ProofS, ev.ProofS) {
-			t.Errorf("unexpected s proof\n\twant %v\n\tgot  %v", hex.EncodeToString(test.ProofS), hex.EncodeToString(ev.ProofS))
+			t.Errorf(
+				"unexpected s proof\n\twant %v\n\tgot  %v",
+				hex.EncodeToString(test.ProofS),
+				hex.EncodeToString(ev.ProofS),
+			)
 		}
 	}
 
@@ -387,7 +398,7 @@ func (v vector) test(t *testing.T) {
 
 	// Get mode, hash function, and cipher suite
 	mode := v.Mode
-	suite := v.SuiteID
+	suite := v.Identifier
 
 	privKey, err := hex.DecodeString(v.SkSm)
 	if err != nil {
@@ -436,13 +447,24 @@ func (v vector) test(t *testing.T) {
 			sks, _ := o.DeriveKeyPair(seed, keyInfo)
 			// log.Printf("sks %v", hex.EncodeToString(serializeScalar(sks, scalarLength(o.id))))
 			if !bytes.Equal(serializeScalar(sks, scalarLength(o.id)), privKey) {
-				t.Fatalf("DeriveKeyPair yields unexpected output\n\twant: %v\n\tgot : %v", privKey, serializeScalar(sks, scalarLength(o.id)))
+				t.Fatalf(
+					"DeriveKeyPair yields unexpected output\n\twant: %v\n\tgot : %v",
+					privKey,
+					serializeScalar(sks, scalarLength(o.id)),
+				)
 			}
 
 			// Set up a new server.
 			server, err := getServer(suite, mode, privKey)
 			if err != nil {
-				t.Fatalf("failed on setting up server %q\nvector value (%d) %v\ndecoded (%d) %v\n", err, len(v.SkSm), v.SkSm, len(privKey), privKey)
+				t.Fatalf(
+					"failed on setting up server %q\nvector value (%d) %v\ndecoded (%d) %v\n",
+					err,
+					len(v.SkSm),
+					v.SkSm,
+					len(privKey),
+					privKey,
+				)
 			}
 
 			if string(dst) != string(server.dst(hash2groupDSTPrefix)) {
@@ -487,15 +509,11 @@ func TestVOPRF(t *testing.T) {
 			}
 
 			for _, tv := range v {
-				if tv.SuiteName == "OPRF(decaf448, SHAKE-256)" {
+				if tv.Identifier == "decaf448-SHAKE256" {
 					continue
 				}
 
-				//if tv.SuiteName == "OPRF(P-384, SHA-384)" {
-				//	continue
-				//}
-
-				t.Run(string(tv.Mode)+" - "+tv.SuiteName, tv.test)
+				t.Run(string(tv.Mode)+" - "+string(tv.Identifier), tv.test)
 			}
 			return nil
 		}); err != nil {

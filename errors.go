@@ -11,7 +11,7 @@ package voprf
 import "errors"
 
 var (
-	errParamInvalidID     = errors.New("invalid Ciphersuite identifier")
+	errParamInvalidID     = errors.New("invalid Identifier")
 	errParamFinalizeLen   = errors.New("invalid number of elements in evaluation")
 	errParamInputEqualLen = errors.New("input lengths are not equal")
 

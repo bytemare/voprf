@@ -11,13 +11,13 @@ This implementation supports the OPRF, VOPRF, and POPRF protocols as specified i
 
 ## Ciphersuites and bit security
 
-| Ciphersuite     | Identifier | Bit security |        Implementation         |
-|:----------------|:----------:|:------------:|:-----------------------------:|
-| RistrettoSha512 |   0x0001   |     128      | github.com/gtank/ristretto255 |
-| ~~Decaf448~~    |   0x0002   |     224      |        not implemented        |
-| P256Sha512      |   0x0003   |     128      | github.com/armfazh/h2c-go-ref |
-| P384Sha384      |   0x0004   |     192      | github.com/armfazh/h2c-go-ref |
-| P521Sha512      |   0x0005   |     256      | github.com/armfazh/h2c-go-ref |
+| Ciphersuite     |     Identifier      | Bit security |        Implementation         |
+|:----------------|:-------------------:|:------------:|:-----------------------------:|
+| RistrettoSha512 | ristretto255-SHA512 |     128      | github.com/gtank/ristretto255 |
+| ~~Decaf448~~    |  decaf448-SHAKE256  |     224      |        not implemented        |
+| P256Sha512      |     P256-SHA256     |     128      |       filippo.io/nistec       |
+| P384Sha384      |     P384-SHA384     |     192      |       filippo.io/nistec       |
+| P521Sha512      |     P521-SHA512     |     256      |       filippo.io/nistec       |
 
 ## Versioning
 

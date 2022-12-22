@@ -1,76 +1,90 @@
 name: VOPRF
 on:
-  push:
-    tags:
-      - v*
-    branches:
-      - main
   pull_request:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
-  analyze:
-    name: Analyze
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        GOVER: [ '1.16', '1.15', '1.14' ]
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Setup Go-${{ matrix.GOVER }}
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.GOVER }}
-
-      # Linting
-      #- name: Linting
-      #  uses: golangci/golangci-lint-action@v2
-      #  with:
-      #    version: latest
-      #    args: --config=./.github/.golangci.yml ./...
-
-      # CodeQL
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v1
-        with:
-          languages: 'go'
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v1
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v1
-
-  coverage:
-    name: Coverage
-    needs: [ analyze ]
-    if: github.event_name == 'push'
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # pin@v3
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # pin@v3
         with:
-          go-version: '1.16'
+          go-version-file: ./go.mod
+
+      # Linting
+      - name: Linting
+        uses: golangci/golangci-lint-action@5c56cd6c9dc07901af25baab6f2b0d9f3b7c3018 # pin@v2
+        with:
+          version: latest
+          args: --config=./.github/.golangci.yml ./...
+          only-new-issues: true
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: [ '1.19', '1.18' ]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # pin@v3
+        with:
+          fetch-depth: 0
+      - name: Setup Go
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # pin@v3
+        with:
+          go-version: ${{ matrix.go }}
+
+      # Test
+      - name: Run Tests
+        run: cd .github && make test
+
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # pin@v3
+        with:
+          fetch-depth: 0
+      - name: Setup Go
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # pin@v3
+        with:
+          go-version-file: ./go.mod
 
       # Coverage
       - name: Run coverage
-        run: go test -v -race -covermode=atomic -coverpkg=./... -coverprofile=./coverage.out ./...
+        run: cd .github && make cover
 
       # Codecov
       - name: Codecov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@29386c70ef20e286228c72b668a06fd0e8399192 # pin@v1
         with:
-          file: ./coverage.out
+          file: .github/coverage.out
+
+      # Sonar
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@cb201f3b2d7a38231a8c042dfea4539c8bea180b # pin@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=bytemare-github
+            -Dsonar.projectKey=bytemare_voprf
+            -Dsonar.go.coverage.reportPaths=.github/coverage.out
+            -Dsonar.sources=.
+            -Dsonar.test.exclusions=examples_test.go,test/**,*_test.go
+            -Dsonar.coverage.exclusions=examples_test.go,test/**,*_test.go
+            -Dsonar.tests=. -Dsonar.verbose=true

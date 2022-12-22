@@ -14,7 +14,7 @@ import (
 )
 
 func testExport(t *testing.T, client *Client, export *State) {
-	if export.Ciphersuite != client.id {
+	if export.Identifier != client.id {
 		t.Fatal("group does not match")
 	}
 

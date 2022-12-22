@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/bytemare/crypto/group"
+	group "github.com/bytemare/crypto"
 )
 
 var (
@@ -20,106 +20,21 @@ var (
 	errNilProofC          = errors.New("c proof is nil or empty")
 	errNilProofS          = errors.New("s proof is nil or empty")
 	errInvalidNumElements = errors.New("invalid number of element ")
-	errInvalidInput       = errors.New("invalid input - OPRF input deterministically maps to the group identity element")
+	errInvalidInput       = errors.New(
+		"invalid input - OPRF input deterministically maps to the group identity element",
+	)
 )
 
 // Client represents the Client/Verifier party in a (V)OPRF protocol session,
 // and exposes relevant functions for its execution.
 type Client struct {
-	tweakedKey      *group.Point
-	serverPublicKey *group.Point
+	tweakedKey      *group.Element
+	serverPublicKey *group.Element
 	*oprf
 
 	input          [][]byte
 	blind          []*group.Scalar
-	blindedElement []*group.Point
-}
-
-// State represents a client's state, allowing internal values to be exported and imported to resume a (V)OPRF session.
-type State struct {
-	Ciphersuite     Ciphersuite `json:"s"`
-	Mode            Mode        `json:"m"`
-	ServerPublicKey []byte      `json:"p,omitempty"`
-	Input           [][]byte    `json:"i"`
-	Blind           [][]byte    `json:"r"`
-	Blinded         [][]byte    `json:"d"`
-}
-
-// Export extracts the client's internal values that can be imported in another client for session resumption.
-func (c *Client) Export() *State {
-	s := &State{
-		Ciphersuite: c.id,
-		Mode:        c.mode,
-	}
-
-	if c.serverPublicKey != nil {
-		s.ServerPublicKey = serializePoint(c.serverPublicKey, pointLength(c.id))
-	}
-
-	if len(c.input) != len(c.blind) {
-		panic("different number of input and blind values")
-	}
-
-	s.Input = make([][]byte, len(c.input))
-	s.Blind = make([][]byte, len(c.blind))
-	s.Blinded = make([][]byte, len(c.blindedElement))
-
-	for i := 0; i < len(c.input); i++ {
-		s.Input[i] = make([]byte, len(c.input[i]))
-		copy(s.Input[i], c.input[i])
-		s.Blind[i] = serializeScalar(c.blind[i], pointLength(c.id))
-		s.Blinded[i] = serializePoint(c.blindedElement[i], pointLength(c.id))
-	}
-
-	return s
-}
-
-func (c *Client) Import(state *State) error {
-	var err error
-
-	if len(state.Input) != len(state.Blinded) {
-		return errStateDiffInput
-	}
-
-	if len(state.Blinded) != 0 && len(state.Blinded) != len(state.Blind) {
-		return errStateDiffBlind
-	}
-
-	if state.Mode == VOPRF && state.ServerPublicKey == nil {
-		return errStateNoPubKey
-	}
-
-	c.oprf = suites[state.Ciphersuite].new(state.Mode)
-
-	if state.ServerPublicKey != nil {
-		c.serverPublicKey, err = c.group.NewElement().Decode(state.ServerPublicKey)
-		if err != nil {
-			return err
-		}
-	}
-
-	c.blind = make([]*group.Scalar, len(state.Blind))
-	for i := 0; i < len(state.Blind); i++ {
-		c.blind[i], err = c.group.NewScalar().Decode(state.Blind[i])
-		if err != nil {
-			return err
-		}
-	}
-
-	c.input = make([][]byte, len(state.Input))
-	c.blindedElement = make([]*group.Point, len(state.Blinded))
-
-	for i := 0; i < len(state.Blinded); i++ {
-		c.input[i] = make([]byte, len(state.Input[i]))
-		copy(c.input[i], state.Input[i])
-
-		c.blindedElement[i], err = c.group.NewElement().Decode(state.Blinded[i])
-		if err != nil {
-			return fmt.Errorf("invalid blinded element: %w", err)
-		}
-	}
-
-	return nil
+	blindedElement []*group.Element
 }
 
 func (c *Client) initBlinding(length int) error {
@@ -136,7 +51,7 @@ func (c *Client) initBlinding(length int) error {
 	}
 
 	if len(c.blindedElement) == 0 {
-		c.blindedElement = make([]*group.Point, length)
+		c.blindedElement = make([]*group.Element, length)
 	} else if len(c.blindedElement) != length {
 		return errArrayLength
 	}
@@ -153,8 +68,8 @@ func (c *Client) verifyProof(ev *evaluation) error {
 		return errNilProofS
 	}
 
-	var pk *group.Point
-	var cs, ds []*group.Point
+	var pk *group.Element
+	var cs, ds []*group.Element
 
 	if c.mode == VOPRF {
 		cs, ds = c.blindedElement, ev.elements
@@ -167,16 +82,16 @@ func (c *Client) verifyProof(ev *evaluation) error {
 	encGk := lengthPrefixEncode(serializePoint(pk, pointLength(c.id)))
 	a0, a1 := c.computeComposites(nil, encGk, cs, ds)
 
-	ab := c.group.Base().Mult(ev.proofS)
-	ap := pk.Mult(ev.proofC)
+	ab := c.group.Base().Multiply(ev.proofS)
+	ap := pk.Multiply(ev.proofC)
 	a2 := ab.Add(ap)
 
-	bm := a0.Mult(ev.proofS)
-	bz := a1.Mult(ev.proofC)
+	bm := a0.Multiply(ev.proofS)
+	bz := a1.Multiply(ev.proofC)
 	a3 := bm.Add(bz)
 	expectedC := c.challenge(encGk, a0, a1, a2, a3)
 
-	if !ctEqual(expectedC.Bytes(), ev.proofC.Bytes()) {
+	if !ctEqual(expectedC.Encode(), ev.proofC.Encode()) {
 		return errProofFailed
 	}
 
@@ -193,7 +108,7 @@ func (c *Client) innerBlind(input, info []byte, index int) {
 	if c.mode == POPRF {
 		m := c.pTag(info)
 
-		t := c.group.Base().Mult(m).Add(c.serverPublicKey)
+		t := c.group.Base().Multiply(m).Add(c.serverPublicKey)
 		if t.IsIdentity() {
 			panic(errInvalidInput)
 		}
@@ -206,14 +121,15 @@ func (c *Client) innerBlind(input, info []byte, index int) {
 		panic(errInvalidInput)
 	}
 
-	c.blindedElement[index] = p.Mult(c.blind[index])
+	c.blindedElement[index] = p.Multiply(c.blind[index])
 }
 
-func (c *Client) unblind(evaluated *group.Point, blind *group.Scalar) *group.Point {
-	return evaluated.InvertMult(blind)
+func (c *Client) unblind(evaluated *group.Element, blind *group.Scalar) *group.Element {
+	modInv := blind.Copy().Invert()
+	return evaluated.Multiply(modInv)
 }
 
-// Blind blinds, or masks, the input with a preset or new random blinding element.
+// Blind masks the input with a preset or new random blinding element.
 func (c *Client) Blind(input, info []byte) []byte {
 	if err := c.initBlinding(1); err != nil {
 		panic(err)
@@ -261,8 +177,8 @@ func (c *Client) BlindBatchWithBlinds(blinds, input [][]byte, info []byte) ([][]
 	blindedElements := make([][]byte, len(input))
 
 	for i, blind := range blinds {
-		s, err := c.group.NewScalar().Decode(blind)
-		if err != nil {
+		s := c.group.NewScalar()
+		if err := s.Decode(blind); err != nil {
 			return nil, fmt.Errorf("input blind %d decoding errored with %w", i, err)
 		}
 
@@ -275,21 +191,22 @@ func (c *Client) BlindBatchWithBlinds(blinds, input [][]byte, info []byte) ([][]
 	return blindedElements, nil
 }
 
-func (o *oprf) hashTranscript(input, unblinded []byte) []byte {
+func (o *oprf) hashTranscript(input, info, unblinded []byte) []byte {
 	encInput := lengthPrefixEncode(input)
+
 	encElement := lengthPrefixEncode(unblinded)
 	encDST := []byte(dstFinalize)
 
-	return o.hash.Hash(encInput, encElement, encDST)
-}
+	var hash []byte
 
-func (o *oprf) hashTranscriptInfo(input, info, unblinded []byte) []byte {
-	encInput := lengthPrefixEncode(input)
-	encInfo := lengthPrefixEncode(info)
-	encElement := lengthPrefixEncode(unblinded)
-	encDST := []byte(dstFinalize)
+	if info == nil { // OPRF and VOPRF
+		hash = o.hash.Hash(encInput, encElement, encDST)
+	} else { // POPRF, with info
+		encInfo := lengthPrefixEncode(info)
+		hash = o.hash.Hash(encInput, encInfo, encElement, encDST)
+	}
 
-	return o.hash.Hash(encInput, encInfo, encElement, encDST)
+	return hash
 }
 
 // Finalize finalizes the protocol execution by verifying the proof if necessary,
@@ -319,6 +236,10 @@ func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 		return nil, errInvalidNumElements
 	}
 
+	if c.mode == OPRF || c.mode == VOPRF {
+		info = nil
+	}
+
 	if c.mode == VOPRF || c.mode == POPRF {
 		if err := c.verifyProof(ev); err != nil {
 			return nil, err
@@ -329,13 +250,7 @@ func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 
 	for i, ee := range ev.elements {
 		u := c.unblind(ee, c.blind[i])
-		// pi := c.HashToGroup(c.input[i])
-		// out[i] = c.hashTranscriptInfo(serializePoint(pi, pointLength(c.id)), info, serializePoint(u, pointLength(c.id)))
-		if c.mode == OPRF || c.mode == VOPRF {
-			out[i] = c.hashTranscript(c.input[i], serializePoint(u, pointLength(c.id)))
-		} else {
-			out[i] = c.hashTranscriptInfo(c.input[i], info, serializePoint(u, pointLength(c.id)))
-		}
+		out[i] = c.hashTranscript(c.input[i], info, serializePoint(u, pointLength(c.id)))
 	}
 
 	return out, nil
