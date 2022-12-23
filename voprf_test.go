@@ -168,16 +168,15 @@ func (tv *testVector) Decode() (*test, error) {
 }
 
 type vector struct {
-	DST       string       `json:"groupDST"`
-	Hash      string       `json:"hash"`
-	Mode      Mode         `json:"mode"`
-	KeyInfo   string       `json:"keyInfo"`
-	SksSeed   string       `json:"seed"`
-	PkSm      string       `json:"pkSm,omitempty"`
-	SkSm      string       `json:"skSm"`
-	SuiteID   Ciphersuite  `json:"suiteID"`
-	SuiteName string       `json:"suiteName"`
-	Vectors   []testVector `json:"vectors,omitempty"`
+	DST     string       `json:"groupDST"`
+	Hash    string       `json:"hash"`
+	Mode    Mode         `json:"mode"`
+	KeyInfo string       `json:"keyInfo"`
+	SksSeed string       `json:"seed"`
+	PkSm    string       `json:"pkSm,omitempty"`
+	SkSm    string       `json:"skSm"`
+	SuiteID string       `json:"identifier"`
+	Vectors []testVector `json:"vectors,omitempty"`
 }
 
 func hashToHash(h string) hash.Identifier {
@@ -222,9 +221,9 @@ func (v vector) checkParams(t *testing.T) {
 	}
 
 	// Check cipher suite
-	if v.SuiteID == 0 || v.SuiteID >= maxID {
-		t.Fatalf("invalid cipher suite %v / %v", v.SuiteID, v.SuiteName)
-	}
+	//if v.SuiteID == 0 || v.SuiteID >= maxID {
+	//	t.Fatalf("invalid cipher suite %v / %v", v.SuiteID, v.SuiteName)
+	//}
 }
 
 /*
@@ -387,7 +386,7 @@ func (v vector) test(t *testing.T) {
 
 	// Get mode, hash function, and cipher suite
 	mode := v.Mode
-	suite := v.SuiteID
+	suite := suitesID[v.SuiteID]
 
 	privKey, err := hex.DecodeString(v.SkSm)
 	if err != nil {
@@ -487,7 +486,7 @@ func TestVOPRF(t *testing.T) {
 			}
 
 			for _, tv := range v {
-				if tv.SuiteName == "OPRF(decaf448, SHAKE-256)" {
+				if tv.SuiteID == "decaf448-SHAKE256" {
 					continue
 				}
 
@@ -495,7 +494,7 @@ func TestVOPRF(t *testing.T) {
 				//	continue
 				//}
 
-				t.Run(string(tv.Mode)+" - "+tv.SuiteName, tv.test)
+				t.Run(string(tv.Mode)+" - "+tv.SuiteID, tv.test)
 			}
 			return nil
 		}); err != nil {

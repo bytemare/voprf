@@ -50,14 +50,14 @@ const (
 
 	maxID = 0x0006
 
-	sRistrettoSha512 = "RistrettoSha512"
-	sDecaf448Sha512  = "Decaf448Sha512"
-	sP256Sha256      = "P256Sha256"
-	sP384Sha384      = "P384Sha384"
-	sP521Sha512      = "P521Sha512"
+	sRistrettoSha512 = "ristretto255-SHA512"
+	sDecaf448Sha512  = "decaf448-SHAKE256"
+	sP256Sha256      = "P256-SHA256"
+	sP384Sha384      = "P384-SHA384"
+	sP521Sha512      = "P521-SHA512"
 
 	// version is a string explicitly stating the version name.
-	version = "VOPRF09-"
+	version = "OPRFV1"
 
 	// deriveKeyPairDST is the DST prefix for the DeriveKeyPair function.
 	deriveKeyPairDST = "DeriveKeyPair"
@@ -71,6 +71,7 @@ const (
 
 var (
 	suites      = make([]*oprf, maxID)
+	suitesID    = make(map[string]Ciphersuite)
 	groupToOprf = make(map[group.Group]Ciphersuite)
 	oprfToGroup = make(map[Ciphersuite]group.Group)
 )
@@ -95,13 +96,14 @@ func FromGroup(id group.Group) (Ciphersuite, error) {
 	return c, nil
 }
 
-func (c Ciphersuite) register(g group.Group, h hash.Hashing) {
+func (c Ciphersuite) register(g group.Group, h hash.Hashing, id string) {
 	o := &oprf{
 		id:   c,
 		hash: h.Get(),
 	}
 
 	suites[c] = o
+	suitesID[id] = c
 	groupToOprf[g] = c
 	oprfToGroup[c] = g
 }
@@ -134,11 +136,12 @@ type oprf struct {
 }
 
 func contextString(mode Mode, id Ciphersuite) []byte {
-	v := []byte(version)
-	ctx := make([]byte, 0, len(v)+1+2)
-	ctx = append(ctx, v...)
+	ctx := make([]byte, 0, len(version)+3+len(id.String()))
+	ctx = append(ctx, version...)
+	ctx = append(ctx, "-"...)
 	ctx = append(ctx, byte(mode))
-	ctx = append(ctx, i2osp2(int(id))...)
+	ctx = append(ctx, "-"...)
+	ctx = append(ctx, id.String()...)
 
 	return ctx
 }
@@ -316,9 +319,9 @@ func (c Ciphersuite) String() string {
 }
 
 func init() {
-	RistrettoSha512.register(group.Ristretto255Sha512, hash.SHA512)
+	RistrettoSha512.register(group.Ristretto255Sha512, hash.SHA512, sRistrettoSha512)
 	// Decaf448Sha512.register(group.Curve448Sha512, hash.SHA512)
-	P256Sha256.register(group.P256Sha256, hash.SHA256)
-	P384Sha384.register(group.P384Sha384, hash.SHA384)
-	P521Sha512.register(group.P521Sha512, hash.SHA512)
+	P256Sha256.register(group.P256Sha256, hash.SHA256, sP256Sha256)
+	P384Sha384.register(group.P384Sha384, hash.SHA384, sP384Sha384)
+	P521Sha512.register(group.P521Sha512, hash.SHA512, sP521Sha512)
 }
