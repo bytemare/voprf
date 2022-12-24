@@ -39,50 +39,33 @@ func testExport(t *testing.T, client *Client, export *State) {
 	}
 }
 
-//func TestClient_Export(t *testing.T) {
-//	suite := RistrettoSha512
-//	input := []byte("input")
-//	server, _ := suite.OPRFServer(nil)
-//	serverPubKey := server.PublicKey()
-//	client, _ := suite.OPRFClient(serverPubKey)
-//	client.Blind(input)
-//
-//	x := client.Export()
-//
-//	testExport(t, client, x)
-//}
+func dummyClientExport(t *testing.T) (*Client, *State) {
+	suite := RistrettoSha512
+	input := []byte("input")
+	client, _ := suite.Client(OPRF, nil)
+	client.Blind(input, nil)
+	export := client.Export()
 
-//func TestClient_Import(t *testing.T) {
-//	suite := RistrettoSha512
-//	enc := encoding.JSON
-//	input := []byte("input")
-//	server, _ := suite.OPRFServer(nil)
-//	serverPubKey := server.PublicKey()
-//	client, _ := suite.OPRFClient(serverPubKey)
-//	client.Blind(input)
-//	export := client.Export()
+	testExport(t, client, export)
+
+	return client, export
+}
+
+// func TestClient_Export(t *testing.T) {
+// 	dummyClientExport(t)
+// }
 //
-//	testExport(t, client, export)
+// func TestClient_Import(t *testing.T) {
+// 	client, export := dummyClientExport(t)
 //
-//	encoded, err := enc.Encode(export)
-//	if err != nil {
-//		panic(err)
-//	}
+// 	clientCopy, _ := RistrettoSha512.Client(OPRF, nil)
+// 	if err := clientCopy.Import(export); err != nil {
+// 		panic(err)
+// 	}
 //
-//	decoded, err := enc.Decode(encoded, &State{})
-//	if err != nil {
-//		panic(err)
-//	}
-//	export2 := decoded.(*State)
+// 	if !reflect.DeepEqual(client, clientCopy) {
+// 		t.Fatal("Export encoding/decoding failed.")
+// 	}
 //
-//	if !reflect.DeepEqual(export, export2) {
-//		t.Fatal("Export encoding/decoding failed.")
-//	}
-//
-//	clientCopy, _ := P256Sha256.OPRFClient(nil)
-//	if err := clientCopy.Import(export2); err != nil {
-//		panic(err)
-//	}
-//
-//	testExport(t, clientCopy, export)
-//}
+// 	testExport(t, clientCopy, export)
+// }

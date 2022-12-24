@@ -9,9 +9,6 @@
 package voprf
 
 import (
-	"crypto/subtle"
-	"encoding/binary"
-
 	group "github.com/bytemare/crypto"
 )
 
@@ -22,21 +19,6 @@ const (
 	dstSeed      = "Seed-"
 	dstInfo      = "Info"
 )
-
-func i2osp2(value int) []byte {
-	out := make([]byte, 2)
-	binary.BigEndian.PutUint16(out, uint16(value))
-
-	return out
-}
-
-func lengthPrefixEncode(input []byte) []byte {
-	return append(i2osp2(len(input)), input...)
-}
-
-func ctEqual(a, b []byte) bool {
-	return subtle.ConstantTimeCompare(a, b) == 1
-}
 
 func (o *oprf) ccScalar(encSeed []byte, index int, ci, di *group.Element) *group.Scalar {
 	input := concatenate(encSeed, i2osp2(index),
@@ -73,7 +55,7 @@ func (o *oprf) computeCompositesClient(encSeed []byte, cs, ds []*group.Element) 
 
 func (o *oprf) computeComposites(k *group.Scalar, encGk []byte, cs, ds []*group.Element) (m, z *group.Element) {
 	// DST
-	encSeedDST := lengthPrefixEncode(o.dst(dstSeed))
+	encSeedDST := lengthPrefixEncode(dst(dstSeed, o.contextString))
 
 	// build seed
 	seed := o.hash.Hash(encGk, encSeedDST)
@@ -87,29 +69,6 @@ func (o *oprf) computeComposites(k *group.Scalar, encGk []byte, cs, ds []*group.
 	return o.computeCompositesClient(encSeed, cs, ds)
 }
 
-func concatenate(input ...[]byte) []byte {
-	if len(input) == 1 {
-		if len(input[0]) == 0 {
-			return nil
-		}
-
-		return input[0]
-	}
-
-	length := 0
-	for _, in := range input {
-		length += len(in)
-	}
-
-	buf := make([]byte, 0, length)
-
-	for _, in := range input {
-		buf = append(buf, in...)
-	}
-
-	return buf
-}
-
 func (o *oprf) challenge(encPks []byte, a0, a1, a2, a3 *group.Element) *group.Scalar {
 	encA0 := lengthPrefixEncode(a0.Encode())
 	encA1 := lengthPrefixEncode(a1.Encode())
@@ -119,4 +78,36 @@ func (o *oprf) challenge(encPks []byte, a0, a1, a2, a3 *group.Element) *group.Sc
 	input := concatenate(encPks, encA0, encA1, encA2, encA3, encDST)
 
 	return o.HashToScalar(input)
+}
+
+func (o *oprf) generateProof(random, k *group.Scalar, pk *group.Element, cs, ds []*group.Element) (proofC, proofS *group.Scalar) {
+	encPk := lengthPrefixEncode(pk.Encode())
+	a0, a1 := o.computeComposites(k, encPk, cs, ds)
+
+	a2 := o.group.Base().Multiply(random)
+	a3 := a0.Copy().Multiply(random)
+
+	proofC = o.challenge(encPk, a0, a1, a2, a3)
+	proofS = random.Subtract(proofC.Copy().Multiply(k))
+
+	return proofC, proofS
+}
+
+func (o *oprf) verifyProof(ev *evaluation, pk *group.Element, cs, ds []*group.Element) error {
+	encGk := lengthPrefixEncode(pk.Encode())
+	a0, a1 := o.computeComposites(nil, encGk, cs, ds)
+
+	ap := pk.Copy().Multiply(ev.proofC)
+	a2 := o.group.Base().Multiply(ev.proofS).Add(ap)
+
+	bm := a0.Copy().Multiply(ev.proofS)
+	bz := a1.Copy().Multiply(ev.proofC)
+	a3 := bm.Add(bz)
+	expectedC := o.challenge(encGk, a0, a1, a2, a3)
+
+	if !ctEqual(expectedC.Encode(), ev.proofC.Encode()) {
+		return errProofFailed
+	}
+
+	return nil
 }

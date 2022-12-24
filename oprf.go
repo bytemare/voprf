@@ -37,7 +37,7 @@ const (
 	RistrettoSha512 Ciphersuite = 0x0001
 
 	// Decaf448Sha512 is the OPRF cipher suite of the Decaf448 group and SHA-512.
-	// decaf448Sha512 Ciphersuite = 0x0002
+	// decaf448Sha512 Ciphersuite = 0x0002.
 
 	// P256Sha256 is the OPRF cipher suite of the NIST P-256 group and SHA-256.
 	P256Sha256 Ciphersuite = 0x0003
@@ -51,7 +51,7 @@ const (
 	maxID = 0x0006
 
 	sRistrettoSha512 = "ristretto255-SHA512"
-	// sDecaf448Sha512  = "decaf448-SHAKE256"
+	// sDecaf448Sha512  = "decaf448-SHAKE256".
 	sP256Sha256 = "P256-SHA256"
 	sP384Sha384 = "P384-SHA384"
 	sP521Sha512 = "P521-SHA512"
@@ -96,25 +96,6 @@ func FromGroup(id group.Group) (Ciphersuite, error) {
 	return c, nil
 }
 
-func (c Ciphersuite) register(g group.Group, h hash.Hashing, id string) {
-	o := &oprf{
-		id:   c,
-		hash: h.Get(),
-	}
-
-	suites[c] = o
-	suitesID[id] = c
-	groupToOprf[g] = c
-	oprfToGroup[c] = g
-}
-
-// KeyPair assembles a VOPRF key pair. The SecretKey can be used as the evaluation key for the group identified by ID.
-type KeyPair struct {
-	ID        Ciphersuite
-	PublicKey []byte
-	SecretKey []byte
-}
-
 // KeyGen returns a fresh KeyPair for the given cipher suite.
 func (c Ciphersuite) KeyGen() *KeyPair {
 	sk := c.Group().NewScalar().Random()
@@ -125,6 +106,35 @@ func (c Ciphersuite) KeyGen() *KeyPair {
 		PublicKey: pk.Encode(),
 		SecretKey: sk.Encode(),
 	}
+}
+
+// Client returns a (P|V)OPRF client. For the OPRF mode, serverPublicKey should be nil, and non-nil otherwise.
+func (c Ciphersuite) Client(mode Mode, serverPublicKey []byte) (*Client, error) {
+	if mode != OPRF && mode != VOPRF && mode != POPRF {
+		return nil, errParamInvalidMode
+	}
+
+	if (mode == VOPRF || mode == POPRF) && serverPublicKey == nil {
+		return nil, errParamNoPubKey
+	}
+
+	client := c.client(mode)
+
+	if err := client.setServerPublicKey(serverPublicKey); err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+// Server returns a (P|V)OPRF server instantiated with the given encoded private key.
+// If privateKey is nil, a new private/public key pair is created.
+func (c Ciphersuite) Server(mode Mode, privateKey []byte) (*Server, error) {
+	if mode != OPRF && mode != VOPRF && mode != POPRF {
+		return nil, errParamInvalidMode
+	}
+
+	return c.server(mode, privateKey)
 }
 
 type oprf struct {
@@ -146,23 +156,6 @@ func contextString(mode Mode, id Ciphersuite) []byte {
 	return ctx
 }
 
-func (o *oprf) dst(prefix string) []byte {
-	p := []byte(prefix)
-	dst := make([]byte, 0, len(p)+len(o.contextString))
-	dst = append(dst, p...)
-	dst = append(dst, o.contextString...)
-
-	return dst
-}
-
-func (o *oprf) pTag(info []byte) *group.Scalar {
-	framedInfo := make([]byte, 0, len(dstInfo)+2+len(info)) // dstContext + s.contextString + lengthPrefixEncode(info)
-	framedInfo = append(framedInfo, dstInfo...)
-	framedInfo = append(framedInfo, lengthPrefixEncode(info)...)
-
-	return o.HashToScalar(framedInfo)
-}
-
 func (o *oprf) new(mode Mode) *oprf {
 	o.mode = mode
 	o.contextString = contextString(mode, o.id)
@@ -181,7 +174,7 @@ func (o *oprf) DeriveKeyPair(seed, info []byte) (*group.Scalar, *group.Element) 
 
 	for s == nil || s.IsZero() {
 		if counter > 255 {
-			panic("")
+			panic("impossible to generate non-zero scalar")
 		}
 
 		s = o.group.HashToScalar(concatenate(deriveInput, []byte{counter}), dst)
@@ -193,41 +186,23 @@ func (o *oprf) DeriveKeyPair(seed, info []byte) (*group.Scalar, *group.Element) 
 
 // HashToGroup maps the input data to an element of the group.
 func (o *oprf) HashToGroup(data []byte) *group.Element {
-	return o.group.HashToGroup(data, o.dst(hash2groupDSTPrefix))
+	return o.group.HashToGroup(data, dst(hash2groupDSTPrefix, o.contextString))
 }
 
 // HashToScalar maps the input data to a scalar.
 func (o *oprf) HashToScalar(data []byte) *group.Scalar {
-	return o.group.HashToScalar(data, o.dst(hash2scalarDSTPrefix))
-}
-
-func (o *oprf) DeserializeElement(data []byte) (*group.Element, error) {
-	p := o.group.NewElement()
-	if err := p.Decode(data); err != nil {
-		return nil, fmt.Errorf("could not decode element : %w", err)
-	}
-
-	if p.IsIdentity() {
-		return nil, errDecodeIdentity
-	}
-
-	return p, nil
-}
-
-func (o *oprf) DeserializeScalar(data []byte) (*group.Scalar, error) {
-	s := o.group.NewScalar()
-	if err := s.Decode(data); err != nil {
-		return nil, fmt.Errorf("could not decode scalar : %w", err)
-	}
-
-	return s, nil
+	return o.group.HashToScalar(data, dst(hash2scalarDSTPrefix, o.contextString))
 }
 
 func (c Ciphersuite) client(mode Mode) *Client {
 	return &Client{oprf: suites[c].new(mode)}
 }
 
-func (c *Client) setServerPubkey(serverPublicKey []byte) error {
+func (c *Client) setServerPublicKey(serverPublicKey []byte) error {
+	if serverPublicKey == nil { // OPRF
+		return nil
+	}
+
 	pub := c.group.NewElement()
 	if err := pub.Decode(serverPublicKey); err != nil {
 		return fmt.Errorf("invalid public key: %w", err)
@@ -238,37 +213,14 @@ func (c *Client) setServerPubkey(serverPublicKey []byte) error {
 	return nil
 }
 
-// OPRFClient returns an OPRF client.
-func (c Ciphersuite) OPRFClient() *Client {
-	return c.client(OPRF)
-}
-
-// VOPRFClient returns a VOPRF client.
-func (c Ciphersuite) VOPRFClient(serverPublicKey []byte) (*Client, error) {
-	client := c.client(VOPRF)
-	if err := client.setServerPubkey(serverPublicKey); err != nil {
-		return nil, err
-	}
-
-	return client, nil
-}
-
-// POPRFClient returns a POPRF client.
-func (c Ciphersuite) POPRFClient(serverPublicKey []byte) (*Client, error) {
-	client := c.client(POPRF)
-	if err := client.setServerPubkey(serverPublicKey); err != nil {
-		return nil, err
-	}
-
-	return client, nil
-}
-
 func (c Ciphersuite) server(mode Mode, privateKey []byte) (*Server, error) {
 	s := &Server{
 		oprf: suites[c].new(mode),
 	}
 
-	if privateKey != nil {
+	if privateKey == nil {
+		s.KeyGen()
+	} else {
 		sk := s.group.NewScalar()
 		if err := sk.Decode(privateKey); err != nil {
 			return nil, fmt.Errorf("invalid private key: %w", err)
@@ -276,29 +228,32 @@ func (c Ciphersuite) server(mode Mode, privateKey []byte) (*Server, error) {
 
 		s.privateKey = sk
 		s.publicKey = s.group.Base().Multiply(sk)
-	} else {
-		s.KeyGen()
 	}
 
 	return s, nil
 }
 
-// OPRFServer returns an OPRF server instantiated with the given encoded private key.
-// If privateKey is nil, a new private/public key pair is created.
-func (c Ciphersuite) OPRFServer(privateKey []byte) (*Server, error) {
-	return c.server(OPRF, privateKey)
+func (o *oprf) pTag(info []byte) *group.Scalar {
+	framedInfo := make([]byte, 0, len(dstInfo)+2+len(info)) // dstContext + s.contextString + lengthPrefixEncode(info)
+	framedInfo = append(framedInfo, dstInfo...)
+	framedInfo = append(framedInfo, lengthPrefixEncode(info)...)
+
+	return o.HashToScalar(framedInfo)
 }
 
-// VOPRFServer returns a VOPRF server/prover instantiated with the given encoded private key.
-// If privateKey is nil, a new private/public key pair is created.
-func (c Ciphersuite) VOPRFServer(privateKey []byte) (*Server, error) {
-	return c.server(VOPRF, privateKey)
-}
+func (o *oprf) hashTranscript(input, info, unblinded []byte) (hash []byte) {
+	encInput := lengthPrefixEncode(input)
+	encElement := lengthPrefixEncode(unblinded)
+	encDST := []byte(dstFinalize)
 
-// POPRFServer returns a POPRF server/prover instantiated with the given encoded private key.
-// If privateKey is nil, a new private/public key pair is created.
-func (c Ciphersuite) POPRFServer(privateKey []byte) (*Server, error) {
-	return c.server(POPRF, privateKey)
+	if info == nil { // OPRF and VOPRF
+		hash = o.hash.Hash(encInput, encElement, encDST)
+	} else { // POPRF
+		encInfo := lengthPrefixEncode(info)
+		hash = o.hash.Hash(encInput, encInfo, encElement, encDST)
+	}
+
+	return hash
 }
 
 // String implements the Stringer() interface for the Ciphersuite.
@@ -319,9 +274,21 @@ func (c Ciphersuite) String() string {
 	}
 }
 
+func (c Ciphersuite) register(g group.Group, h hash.Hashing, id string) {
+	o := &oprf{
+		id:   c,
+		hash: h.Get(),
+	}
+
+	suites[c] = o
+	suitesID[id] = c
+	groupToOprf[g] = c
+	oprfToGroup[c] = g
+}
+
 func init() {
 	RistrettoSha512.register(group.Ristretto255Sha512, hash.SHA512, sRistrettoSha512)
-	// Decaf448Sha512.register(group.Curve448Sha512, hash.SHA512)
+	// Decaf448Sha512.register(group.Curve448Sha512, hash.SHA512).
 	P256Sha256.register(group.P256Sha256, hash.SHA256, sP256Sha256)
 	P384Sha384.register(group.P384Sha384, hash.SHA384, sP384Sha384)
 	P521Sha512.register(group.P521Sha512, hash.SHA512, sP521Sha512)

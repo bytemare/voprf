@@ -12,11 +12,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -226,54 +223,6 @@ func (v vector) checkParams(t *testing.T) {
 	//}
 }
 
-/*
-func getPreprocessedBlind(c Ciphersuite, serverPublicKey []byte, blinds [][]byte) (*PreprocessedBlind, error) {
-	preprocessed, err := c.PreprocessWithBlinds(blinds, serverPublicKey)
-	if err != nil {
-		return nil, fmt.Errorf("preprocess: %w", err)
-	}
-
-	encoded, err := preprocessed.Encode(encoding.JSON)
-	if err != nil {
-		return nil, fmt.Errorf("preprocess encode: %w", err)
-	}
-
-	decoded, err := DecodePreprocessedBlind(encoded, encoding.JSON)
-	if err != nil {
-		return nil, fmt.Errorf("preprocess decode: %w", err)
-	}
-
-	return decoded, nil
-}
-
-*/
-
-func getClient(c Ciphersuite, mode Mode, serverPublicKey []byte) (*Client, error) {
-	switch mode {
-	case OPRF:
-		return c.OPRFClient(), nil
-	case VOPRF:
-		return c.VOPRFClient(serverPublicKey)
-	case POPRF:
-		return c.POPRFClient(serverPublicKey)
-	default:
-		return nil, errors.New("invalid blinding")
-	}
-}
-
-func getServer(c Ciphersuite, mode Mode, privateKey []byte) (*Server, error) {
-	switch mode {
-	case OPRF:
-		return c.OPRFServer(privateKey)
-	case VOPRF:
-		return c.VOPRFServer(privateKey)
-	case POPRF:
-		return c.POPRFServer(privateKey)
-	default:
-		return nil, errors.New("invalid mode")
-	}
-}
-
 func testBlind(t *testing.T, client *Client, input, blind, expected, info []byte) {
 	s := client.group.NewScalar()
 	if err := s.Decode(blind); err != nil {
@@ -402,7 +351,7 @@ func (v vector) test(t *testing.T) {
 		serverPublicKey = pksm
 	}
 
-	dst, err := hex.DecodeString(v.DST)
+	expectedDST, err := hex.DecodeString(v.DST)
 	if err != nil {
 		t.Fatalf("hex decoding errored with %q", err)
 	}
@@ -439,21 +388,21 @@ func (v vector) test(t *testing.T) {
 			}
 
 			// Set up a new server.
-			server, err := getServer(suite, mode, privKey)
+			server, err := suite.Server(mode, privKey)
 			if err != nil {
 				t.Fatalf("failed on setting up server %q\nvector value (%d) %v\ndecoded (%d) %v\n", err, len(v.SkSm), v.SkSm, len(privKey), privKey)
 			}
 
-			if string(dst) != string(server.dst(hash2groupDSTPrefix)) {
+			if string(expectedDST) != string(dst(hash2groupDSTPrefix, o.contextString)) {
 				t.Fatal("GroupDST output is not valid.")
 			}
 
-			client, err := getClient(suite, mode, serverPublicKey)
+			client, err := suite.Client(mode, serverPublicKey)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			if string(dst) != string(client.dst(hash2groupDSTPrefix)) {
+			if string(expectedDST) != string(dst(hash2groupDSTPrefix, o.contextString)) {
 				t.Fatal("GroupDST output is not valid.")
 			}
 
@@ -463,41 +412,34 @@ func (v vector) test(t *testing.T) {
 	}
 }
 
-func TestVOPRF(t *testing.T) {
-	if err := filepath.Walk("test/allVectors.json",
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
+func loadVOPRFVectors(filepath string) (testVectors, error) {
+	contents, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
 
-			if info.IsDir() {
-				return nil
-			}
+	var v testVectors
+	errJSON := json.Unmarshal(contents, &v)
+	if errJSON != nil {
+		return nil, errJSON
+	}
 
-			contents, err := ioutil.ReadFile(path)
-			if err != nil {
-				return err
-			}
+	return v, nil
+}
 
-			var v testVectors
-			errJSON := json.Unmarshal(contents, &v)
-			if errJSON != nil {
-				return errJSON
-			}
+func TestVOPRFVectors(t *testing.T) {
+	vectorFile := "test/allVectors.json"
 
-			for _, tv := range v {
-				if tv.SuiteID == "decaf448-SHAKE256" {
-					continue
-				}
+	v, err := loadVOPRFVectors(vectorFile)
+	if err != nil || v == nil {
+		t.Fatal(err)
+	}
 
-				//if tv.SuiteName == "OPRF(P-384, SHA-384)" {
-				//	continue
-				//}
+	for _, tv := range v {
+		if tv.SuiteID == "decaf448-SHAKE256" {
+			continue
+		}
 
-				t.Run(string(tv.Mode)+" - "+tv.SuiteID, tv.test)
-			}
-			return nil
-		}); err != nil {
-		t.Fatalf("error opening test vectors: %v", err)
+		t.Run(string(tv.Mode)+" - "+tv.SuiteID, tv.test)
 	}
 }
