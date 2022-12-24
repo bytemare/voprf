@@ -8,81 +8,59 @@
 
 package voprf
 
-import (
-	"bytes"
-	"testing"
-)
-
-func testExport(t *testing.T, client *Client, export *State) {
-	if export.Ciphersuite != client.id {
-		t.Fatal("group does not match")
-	}
-
-	if export.Mode != client.mode {
-		t.Fatal("mode is not correct")
-	}
-
-	if !bytes.Equal(export.ServerPublicKey, serializePoint(client.serverPublicKey, pointLength(client.id))) {
-		t.Fatal("blind is not correct")
-	}
-
-	for i, b := range client.input {
-		if !bytes.Equal(export.Input[i], b) {
-			t.Fatalf("input %d is not correct", i)
-		}
-	}
-
-	for i, b := range client.blind {
-		if !bytes.Equal(export.Blind[i], serializeScalar(b, scalarLength(client.id))) {
-			t.Fatalf("blind %d is not correct", i)
-		}
-	}
-}
-
-//func TestClient_Export(t *testing.T) {
-//	suite := RistrettoSha512
-//	input := []byte("input")
-//	server, _ := suite.OPRFServer(nil)
-//	serverPubKey := server.PublicKey()
-//	client, _ := suite.OPRFClient(serverPubKey)
-//	client.Blind(input)
+//func testExport(t *testing.T, client *voprf.Client, export *voprf.State) {
+//	if export.Ciphersuite != client.id {
+//		t.Fatal("group does not match")
+//	}
 //
-//	x := client.Export()
+//	if export.Mode != client.mode {
+//		t.Fatal("mode is not correct")
+//	}
 //
-//	testExport(t, client, x)
+//	if !bytes.Equal(export.ServerPublicKey, client.serverPublicKey.Encode()) {
+//		t.Fatal("blind is not correct")
+//	}
+//
+//	for i, b := range client.input {
+//		if !bytes.Equal(export.Input[i], b) {
+//			t.Fatalf("input %d is not correct", i)
+//		}
+//	}
+//
+//	for i, b := range client.blind {
+//		if !bytes.Equal(export.Blind[i], b.Encode()) {
+//			t.Fatalf("blind %d is not correct", i)
+//		}
+//	}
 //}
 
-//func TestClient_Import(t *testing.T) {
-//	suite := RistrettoSha512
-//	enc := encoding.JSON
+//func dummyClientExport(t *testing.T) (*voprf.Client, *voprf.State) {
+//	suite := voprf.RistrettoSha512
 //	input := []byte("input")
-//	server, _ := suite.OPRFServer(nil)
-//	serverPubKey := server.PublicKey()
-//	client, _ := suite.OPRFClient(serverPubKey)
-//	client.Blind(input)
+//	client, _ := suite.Client(voprf.OPRF, nil)
+//	client.Blind(input, nil)
 //	export := client.Export()
 //
 //	testExport(t, client, export)
 //
-//	encoded, err := enc.Encode(export)
-//	if err != nil {
-//		panic(err)
-//	}
-//
-//	decoded, err := enc.Decode(encoded, &State{})
-//	if err != nil {
-//		panic(err)
-//	}
-//	export2 := decoded.(*State)
-//
-//	if !reflect.DeepEqual(export, export2) {
-//		t.Fatal("Export encoding/decoding failed.")
-//	}
-//
-//	clientCopy, _ := P256Sha256.OPRFClient(nil)
-//	if err := clientCopy.Import(export2); err != nil {
-//		panic(err)
-//	}
-//
-//	testExport(t, clientCopy, export)
+//	return client, export
 //}
+
+// func TestClient_Export(t *testing.T) {
+// 	dummyClientExport(t)
+// }
+//
+// func TestClient_Import(t *testing.T) {
+// 	client, export := dummyClientExport(t)
+//
+// 	clientCopy, _ := RistrettoSha512.Client(OPRF, nil)
+// 	if err := clientCopy.Import(export); err != nil {
+// 		panic(err)
+// 	}
+//
+// 	if !reflect.DeepEqual(client, clientCopy) {
+// 		t.Fatal("Export encoding/decoding failed.")
+// 	}
+//
+// 	testExport(t, clientCopy, export)
+// }

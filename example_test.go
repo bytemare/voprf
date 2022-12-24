@@ -18,12 +18,12 @@ func exchangeWithServer(blinded []byte, verifiable bool) []byte {
 	privateKey, _ := hex.DecodeString("8132542d5ed08594e7522b5eac6bee38bab5868996c25a3fd2a7739be1856b04")
 
 	if verifiable {
-		server, err = RistrettoSha512.VOPRFServer(privateKey)
+		server, err = RistrettoSha512.Server(VOPRF, privateKey)
 		if err != nil {
 			panic(err)
 		}
 	} else {
-		server, err = RistrettoSha512.OPRFServer(privateKey)
+		server, err = RistrettoSha512.Server(OPRF, privateKey)
 		if err != nil {
 			panic(err)
 		}
@@ -43,7 +43,10 @@ func ExampleClient() {
 	input := []byte("input")
 
 	// Set up a new client. Not indicating a server public key indicates we don't use the verifiable mode.
-	client := RistrettoSha512.OPRFClient()
+	client, err := RistrettoSha512.Client(OPRF, nil)
+	if err != nil {
+		panic(err)
+	}
 
 	// The client blinds the initial input, and sends this to the server.
 	blinded := client.Blind(input, nil)
@@ -71,8 +74,7 @@ func ExampleVerifiableClient() {
 	serverPubKey, _ := hex.DecodeString("066c39841db2ca3c2e83e251e71b619013674149692ca2ab41d1b33a1a4fff38")
 
 	// Instantiate a new client with the preprocessed values.
-	// (Note that a nil public key here will switch in the base mode)
-	client, err := ciphersuite.VOPRFClient(serverPubKey)
+	client, err := ciphersuite.Client(VOPRF, serverPubKey)
 	if err != nil {
 		panic(err)
 	}
@@ -103,7 +105,7 @@ func ExampleBaseServer() {
 	blinded, _ := hex.DecodeString("7eaf3d7cbe43d54637274342ce53578b2aba836f297f4f07997a6e1dced1c058")
 
 	// Set up a new server. A private key is automatically created if none is given.
-	server, err := RistrettoSha512.OPRFServer(nil)
+	server, err := RistrettoSha512.Server(OPRF, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -126,7 +128,7 @@ func ExampleVerifiableServer() {
 	blinded, _ := hex.DecodeString("7eaf3d7cbe43d54637274342ce53578b2aba836f297f4f07997a6e1dced1c058")
 
 	// Set up a new server.
-	server, err := RistrettoSha512.VOPRFServer(privateKey)
+	server, err := RistrettoSha512.Server(VOPRF, privateKey)
 	if err != nil {
 		panic(err)
 	}

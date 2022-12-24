@@ -9,54 +9,23 @@
 package voprf
 
 import (
-	"errors"
 	"fmt"
 
-	"github.com/bytemare/crypto/group"
+	group "github.com/bytemare/crypto"
 )
 
 // Server holds the (V)OPRF prover data.
 type Server struct {
 	privateKey *group.Scalar
-	publicKey  *group.Point
+	publicKey  *group.Element
 	*oprf
 	nonceR []byte
-}
-
-var errZeroScalar = errors.New("inversion led to zero scalar")
-
-func (s *Server) randomScalar() (r *group.Scalar) {
-	if s.nonceR == nil {
-		r = s.group.NewScalar().Random()
-	} else {
-		var err error
-		r, err = s.group.NewScalar().Decode(s.nonceR)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	return r
-}
-
-func (s *Server) generateProof(k *group.Scalar, pk *group.Point, cs, ds []*group.Point) (proofC, proofS *group.Scalar) {
-	encPk := lengthPrefixEncode(serializePoint(pk, pointLength(s.id)))
-	a0, a1 := s.computeComposites(k, encPk, cs, ds)
-	r := s.randomScalar()
-
-	a2 := s.group.Base().Mult(r)
-	a3 := a0.Mult(r)
-
-	proofC = s.challenge(encPk, a0, a1, a2, a3)
-	proofS = r.Sub(proofC.Mult(k))
-
-	return proofC, proofS
 }
 
 // KeyGen generates and sets a new private/public key pair.
 func (s *Server) KeyGen() {
 	s.privateKey = s.group.NewScalar().Random()
-	s.publicKey = s.group.Base().Mult(s.privateKey)
+	s.publicKey = s.group.Base().Multiply(s.privateKey)
 }
 
 // Evaluate the input with the private key.
@@ -64,34 +33,58 @@ func (s *Server) Evaluate(blindedElement, info []byte) (*Evaluation, error) {
 	return s.EvaluateBatch([][]byte{blindedElement}, info)
 }
 
-// EvaluateBatch evaluates the input batch of blindedElements and returns a pointer to the Evaluation. If the server
-// was set to be un VOPRF mode, the proof will be included in the Evaluation.
-func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluation, error) {
-	ev := &evaluation{}
-	ev.elements = make([]*group.Point, len(blindedElements))
-
-	var blinded []*group.Point
-	var scalar, t *group.Scalar
-
+func (s *Server) getPrivateKeys(info []byte) (scalar, t *group.Scalar, err error) {
 	if s.mode == POPRF {
 		context := s.pTag(info)
-		t = s.privateKey.Add(context)
-		scalar = t.Invert()
+		t = s.privateKey.Copy().Add(context)
+		scalar = t.Copy().Invert()
+
 		if scalar.IsZero() {
-			return nil, errZeroScalar
+			return nil, nil, errZeroScalar
 		}
 	} else {
 		scalar = s.privateKey
 	}
 
+	return scalar, t, nil
+}
+
+func (s *Server) randomScalar() *group.Scalar {
+	r := s.group.NewScalar()
+
+	if s.nonceR == nil {
+		r.Random()
+	} else {
+		if err := r.Decode(s.nonceR); err != nil {
+			panic(err)
+		}
+	}
+
+	return r
+}
+
+// EvaluateBatch evaluates the input batch of blindedElements and returns a pointer to the Evaluation. If the server
+// was set to be un VOPRF mode, the proof will be included in the Evaluation.
+func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluation, error) {
+	ev := &evaluation{}
+	ev.elements = make([]*group.Element, len(blindedElements))
+
+	var blinded []*group.Element
+	var scalar, t *group.Scalar
+
+	scalar, t, err := s.getPrivateKeys(info)
+	if err != nil {
+		return nil, err
+	}
+
 	if s.mode == VOPRF || s.mode == POPRF {
-		blinded = make([]*group.Point, len(blindedElements))
+		blinded = make([]*group.Element, len(blindedElements))
 	}
 
 	// decode and evaluate element(s)
-	for i, b := range blindedElements {
-		b, err := s.group.NewElement().Decode(b)
-		if err != nil {
+	for i, bytes := range blindedElements {
+		b := s.group.NewElement()
+		if err := b.Decode(bytes); err != nil {
 			return nil, fmt.Errorf("OPRF can't evaluate input : %w", err)
 		}
 
@@ -99,17 +92,20 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 			blinded[i] = b
 		}
 
-		ev.elements[i] = b.Mult(scalar)
+		ev.elements[i] = b.Copy().Multiply(scalar)
 	}
+
+	// generate proof
+	random := s.randomScalar()
 
 	if s.mode == VOPRF {
-		ev.proofC, ev.proofS = s.generateProof(s.privateKey, s.publicKey, blinded, ev.elements)
+		ev.proofC, ev.proofS = s.oprf.generateProof(random, s.privateKey, s.publicKey, blinded, ev.elements)
 	} else if s.mode == POPRF {
-		tweakedKey := s.group.Base().Mult(t)
-		ev.proofC, ev.proofS = s.generateProof(t, tweakedKey, ev.elements, blinded)
+		tweakedKey := s.group.Base().Multiply(t)
+		ev.proofC, ev.proofS = s.oprf.generateProof(random, t, tweakedKey, ev.elements, blinded)
 	}
 
-	return ev.serialize(s.id), nil
+	return ev.serialize(), nil
 }
 
 // FullEvaluate reproduces the full PRF but without the blinding operations, using the client's input.
@@ -117,28 +113,18 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 func (s *Server) FullEvaluate(input, info []byte) ([]byte, error) {
 	p := s.HashToGroup(input)
 
-	var scalar *group.Scalar
-	if s.mode == OPRF || s.mode == VOPRF {
-		scalar = s.privateKey
-	} else {
-		// s.mode == POPRF
-		context := s.pTag(info)
-		k := s.privateKey.Add(context)
-		scalar = k.Invert()
-		if scalar.IsZero() {
-			return nil, errZeroScalar
-		}
+	scalar, _, err := s.getPrivateKeys(info)
+	if err != nil {
+		return nil, err
 	}
 
-	t := p.Mult(scalar)
+	t := p.Multiply(scalar)
 
-	if s.mode == POPRF {
-		return s.hashTranscriptInfo(input, info, serializePoint(t, pointLength(s.id))), nil
+	if s.oprf.mode == OPRF || s.oprf.mode == VOPRF {
+		info = nil
 	}
 
-	// return s.hashTranscriptInfo(serializePoint(p, pointLength(s.id)), info, serializePoint(t, scalarLength(s.id)))
-	// return s.hashTranscriptInfo(input, info, serializePoint(t, scalarLength(s.id)))
-	return s.hashTranscript(input, serializePoint(t, pointLength(s.id))), nil
+	return s.hashTranscript(input, info, t.Encode()), nil
 }
 
 // VerifyFinalize takes the client input (the un-blinded element) and the client's finalize() output,
@@ -148,6 +134,7 @@ func (s *Server) VerifyFinalize(input, info, output []byte) bool {
 	if err != nil {
 		return false
 	}
+
 	return ctEqual(digest, output)
 }
 
@@ -165,15 +152,15 @@ func (s *Server) VerifyFinalizeBatch(input, output [][]byte, info []byte) bool {
 
 // PrivateKey returns the server's serialized private key.
 func (s *Server) PrivateKey() []byte {
-	return serializeScalar(s.privateKey, scalarLength(s.id))
+	return s.privateKey.Encode()
 }
 
 // PublicKey returns the server's serialized public key.
 func (s *Server) PublicKey() []byte {
-	return serializePoint(s.publicKey, pointLength(s.id))
+	return s.publicKey.Encode()
 }
 
 // Ciphersuite returns the cipher suite used in s' instance.
 func (s *Server) Ciphersuite() Ciphersuite {
-	return s.id
+	return s.oprf.id
 }

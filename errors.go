@@ -11,9 +11,11 @@ package voprf
 import "errors"
 
 var (
+	errParamInvalidMode   = errors.New("invalid OPRF mode")
 	errParamInvalidID     = errors.New("invalid Ciphersuite identifier")
 	errParamFinalizeLen   = errors.New("invalid number of elements in evaluation")
 	errParamInputEqualLen = errors.New("input lengths are not equal")
+	errParamNoPubKey      = errors.New("missing public key")
 
 	errEvalSerDeMin      = errors.New("evaluation : insufficient header length")
 	errEvalSerDeElements = errors.New("evaluation : insufficient number of evaluations")
@@ -24,6 +26,5 @@ var (
 	errStateNoPubKey  = errors.New("state in verifiable mode but no server public key")
 
 	errProofFailed = errors.New("proof fails")
-
-	errDecodeIdentity = errors.New("decoded point is the identity element")
+	errZeroScalar  = errors.New("inversion led to zero scalar")
 )
