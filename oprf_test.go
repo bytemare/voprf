@@ -13,9 +13,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -414,41 +412,34 @@ func (v vector) test(t *testing.T) {
 	}
 }
 
-func TestVOPRF(t *testing.T) {
-	if err := filepath.Walk("test/allVectors.json",
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
+func loadVOPRFVectors(filepath string) (testVectors, error) {
+	contents, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
 
-			if info.IsDir() {
-				return nil
-			}
+	var v testVectors
+	errJSON := json.Unmarshal(contents, &v)
+	if errJSON != nil {
+		return nil, errJSON
+	}
 
-			contents, err := ioutil.ReadFile(path)
-			if err != nil {
-				return err
-			}
+	return v, nil
+}
 
-			var v testVectors
-			errJSON := json.Unmarshal(contents, &v)
-			if errJSON != nil {
-				return errJSON
-			}
+func TestVOPRFVectors(t *testing.T) {
+	vectorFile := "test/allVectors.json"
 
-			for _, tv := range v {
-				if tv.SuiteID == "decaf448-SHAKE256" {
-					continue
-				}
+	v, err := loadVOPRFVectors(vectorFile)
+	if err != nil || v == nil {
+		t.Fatal(err)
+	}
 
-				//if tv.SuiteName == "OPRF(P-384, SHA-384)" {
-				//	continue
-				//}
+	for _, tv := range v {
+		if tv.SuiteID == "decaf448-SHAKE256" {
+			continue
+		}
 
-				t.Run(string(tv.Mode)+" - "+tv.SuiteID, tv.test)
-			}
-			return nil
-		}); err != nil {
-		t.Fatalf("error opening test vectors: %v", err)
+		t.Run(string(tv.Mode)+" - "+tv.SuiteID, tv.test)
 	}
 }
