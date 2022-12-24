@@ -68,7 +68,7 @@ func ExampleClient() {
 	// Output:
 }
 
-func ExampleVerifiableClient() {
+func Example_verifiableClient() {
 	ciphersuite := RistrettoSha512
 	input := []byte("input")
 	serverPubKey, _ := hex.DecodeString("066c39841db2ca3c2e83e251e71b619013674149692ca2ab41d1b33a1a4fff38")
@@ -100,7 +100,7 @@ func ExampleVerifiableClient() {
 	// Output:
 }
 
-func ExampleBaseServer() {
+func Example_baseServer() {
 	// We suppose the client sends this blinded element.
 	blinded, _ := hex.DecodeString("7eaf3d7cbe43d54637274342ce53578b2aba836f297f4f07997a6e1dced1c058")
 
@@ -121,7 +121,7 @@ func ExampleBaseServer() {
 	// Output:
 }
 
-func ExampleVerifiableServer() {
+func Example_verifiableServer() {
 	privateKey, _ := hex.DecodeString("8132542d5ed08594e7522b5eac6bee38bab5868996c25a3fd2a7739be1856b04")
 
 	// We suppose the client sends this blinded element.
