@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bytemare/crypto/group"
-	"github.com/bytemare/crypto/hash"
+	group "github.com/bytemare/crypto"
+	"github.com/bytemare/hash"
 )
 
 type test struct {
@@ -76,19 +76,19 @@ func (t *test) Verify(suite Ciphersuite) error {
 	g := suite.Group()
 
 	for i, b := range t.Blind {
-		if _, err := g.NewScalar().Decode(b); err != nil {
+		if err := g.NewScalar().Decode(b); err != nil {
 			return fmt.Errorf("blind %d decoding: %w", i, err)
 		}
 	}
 
 	for i, b := range t.BlindedElement {
-		if _, err := g.NewElement().Decode(b); err != nil {
+		if err := g.NewElement().Decode(b); err != nil {
 			return fmt.Errorf("blinded element %d decoding: %w", i, err)
 		}
 	}
 
 	for i, b := range t.EvaluationElement {
-		if _, err := g.NewElement().Decode(b); err != nil {
+		if err := g.NewElement().Decode(b); err != nil {
 			return fmt.Errorf("evaluation element %d decoding: %w", i, err)
 		}
 	}
@@ -275,8 +275,8 @@ func getServer(c Ciphersuite, mode Mode, privateKey []byte) (*Server, error) {
 }
 
 func testBlind(t *testing.T, client *Client, input, blind, expected, info []byte) {
-	s, err := client.group.NewScalar().Decode(blind)
-	if err != nil {
+	s := client.group.NewScalar()
+	if err := s.Decode(blind); err != nil {
 		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", client.oprf.id, err))
 	}
 
@@ -434,8 +434,8 @@ func (v vector) test(t *testing.T) {
 
 			sks, _ := o.DeriveKeyPair(seed, keyInfo)
 			// log.Printf("sks %v", hex.EncodeToString(serializeScalar(sks, scalarLength(o.id))))
-			if !bytes.Equal(serializeScalar(sks, scalarLength(o.id)), privKey) {
-				t.Fatalf("DeriveKeyPair yields unexpected output\n\twant: %v\n\tgot : %v", privKey, serializeScalar(sks, scalarLength(o.id)))
+			if !bytes.Equal(sks.Encode(), privKey) {
+				t.Fatalf("DeriveKeyPair yields unexpected output\n\twant: %v\n\tgot : %v", privKey, sks.Encode())
 			}
 
 			// Set up a new server.

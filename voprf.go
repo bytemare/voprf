@@ -11,8 +11,8 @@ package voprf
 import (
 	"fmt"
 
-	"github.com/bytemare/crypto/group"
-	"github.com/bytemare/crypto/hash"
+	group "github.com/bytemare/crypto"
+	"github.com/bytemare/hash"
 )
 
 // Mode distinguishes between the OPRF base mode and the VOPRF mode.
@@ -37,7 +37,7 @@ const (
 	RistrettoSha512 Ciphersuite = 0x0001
 
 	// Decaf448Sha512 is the OPRF cipher suite of the Decaf448 group and SHA-512.
-	decaf448Sha512 Ciphersuite = 0x0002
+	// decaf448Sha512 Ciphersuite = 0x0002
 
 	// P256Sha256 is the OPRF cipher suite of the NIST P-256 group and SHA-256.
 	P256Sha256 Ciphersuite = 0x0003
@@ -51,10 +51,10 @@ const (
 	maxID = 0x0006
 
 	sRistrettoSha512 = "ristretto255-SHA512"
-	sDecaf448Sha512  = "decaf448-SHAKE256"
-	sP256Sha256      = "P256-SHA256"
-	sP384Sha384      = "P384-SHA384"
-	sP521Sha512      = "P521-SHA512"
+	// sDecaf448Sha512  = "decaf448-SHAKE256"
+	sP256Sha256 = "P256-SHA256"
+	sP384Sha384 = "P384-SHA384"
+	sP521Sha512 = "P521-SHA512"
 
 	// version is a string explicitly stating the version name.
 	version = "OPRFV1"
@@ -118,12 +118,12 @@ type KeyPair struct {
 // KeyGen returns a fresh KeyPair for the given cipher suite.
 func (c Ciphersuite) KeyGen() *KeyPair {
 	sk := c.Group().NewScalar().Random()
-	pk := c.Group().Base().Mult(sk)
+	pk := c.Group().Base().Multiply(sk)
 
 	return &KeyPair{
 		ID:        c,
-		PublicKey: serializePoint(pk, pointLength(c)),
-		SecretKey: serializeScalar(sk, scalarLength(c)),
+		PublicKey: pk.Encode(),
+		SecretKey: sk.Encode(),
 	}
 }
 
@@ -172,7 +172,7 @@ func (o *oprf) new(mode Mode) *oprf {
 }
 
 // DeriveKeyPair deterministically generates a private and public key pair from input seed.
-func (o *oprf) DeriveKeyPair(seed, info []byte) (*group.Scalar, *group.Point) {
+func (o *oprf) DeriveKeyPair(seed, info []byte) (*group.Scalar, *group.Element) {
 	dst := concatenate([]byte(deriveKeyPairDST), o.contextString)
 	deriveInput := concatenate(seed, lengthPrefixEncode(info))
 
@@ -183,15 +183,16 @@ func (o *oprf) DeriveKeyPair(seed, info []byte) (*group.Scalar, *group.Point) {
 		if counter > 255 {
 			panic("")
 		}
-		s = o.group.HashToScalar(concatenate(deriveInput, []byte{byte(counter)}), dst)
+
+		s = o.group.HashToScalar(concatenate(deriveInput, []byte{counter}), dst)
 		counter++
 	}
 
-	return s, o.group.Base().Mult(s)
+	return s, o.group.Base().Multiply(s)
 }
 
 // HashToGroup maps the input data to an element of the group.
-func (o *oprf) HashToGroup(data []byte) *group.Point {
+func (o *oprf) HashToGroup(data []byte) *group.Element {
 	return o.group.HashToGroup(data, o.dst(hash2groupDSTPrefix))
 }
 
@@ -200,9 +201,9 @@ func (o *oprf) HashToScalar(data []byte) *group.Scalar {
 	return o.group.HashToScalar(data, o.dst(hash2scalarDSTPrefix))
 }
 
-func (o *oprf) DeserializeElement(data []byte) (*group.Point, error) {
-	p, err := o.group.NewElement().Decode(data)
-	if err != nil {
+func (o *oprf) DeserializeElement(data []byte) (*group.Element, error) {
+	p := o.group.NewElement()
+	if err := p.Decode(data); err != nil {
 		return nil, fmt.Errorf("could not decode element : %w", err)
 	}
 
@@ -214,8 +215,8 @@ func (o *oprf) DeserializeElement(data []byte) (*group.Point, error) {
 }
 
 func (o *oprf) DeserializeScalar(data []byte) (*group.Scalar, error) {
-	s, err := o.group.NewScalar().Decode(data)
-	if err != nil {
+	s := o.group.NewScalar()
+	if err := s.Decode(data); err != nil {
 		return nil, fmt.Errorf("could not decode scalar : %w", err)
 	}
 
@@ -227,8 +228,8 @@ func (c Ciphersuite) client(mode Mode) *Client {
 }
 
 func (c *Client) setServerPubkey(serverPublicKey []byte) error {
-	pub, err := c.group.NewElement().Decode(serverPublicKey)
-	if err != nil {
+	pub := c.group.NewElement()
+	if err := pub.Decode(serverPublicKey); err != nil {
 		return fmt.Errorf("invalid public key: %w", err)
 	}
 
@@ -268,13 +269,13 @@ func (c Ciphersuite) server(mode Mode, privateKey []byte) (*Server, error) {
 	}
 
 	if privateKey != nil {
-		sk, err := s.group.NewScalar().Decode(privateKey)
-		if err != nil {
+		sk := s.group.NewScalar()
+		if err := sk.Decode(privateKey); err != nil {
 			return nil, fmt.Errorf("invalid private key: %w", err)
 		}
 
 		s.privateKey = sk
-		s.publicKey = s.group.Base().Mult(sk)
+		s.publicKey = s.group.Base().Multiply(sk)
 	} else {
 		s.KeyGen()
 	}

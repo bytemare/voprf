@@ -12,7 +12,7 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 
-	"github.com/bytemare/crypto/group"
+	group "github.com/bytemare/crypto"
 )
 
 const (
@@ -21,67 +21,7 @@ const (
 	dstFinalize  = "Finalize"
 	dstSeed      = "Seed-"
 	dstInfo      = "Info"
-
-	p256PointLength  = 33
-	p256ScalarLength = 32
-	p384PointLength  = 49
-	p384ScalarLength = 48
-	p521PointLength  = 67
-	p521ScalarLength = 66
 )
-
-func scalarLength(c Ciphersuite) int {
-	switch c {
-	case RistrettoSha512:
-		return 32
-	// case Decaf448Sha512:
-	//	return 56
-	case P256Sha256:
-		return p256ScalarLength
-	case P384Sha384:
-		return p384ScalarLength
-	case P521Sha512:
-		return p521ScalarLength
-	default:
-		panic("invalid suite")
-	}
-}
-
-func pointLength(c Ciphersuite) int {
-	switch c {
-	case RistrettoSha512:
-		return 32
-	// case Decaf448Sha512:
-	//	return 56
-	case P256Sha256:
-		return p256PointLength
-	case P384Sha384:
-		return p384PointLength
-	case P521Sha512:
-		return p521PointLength
-	default:
-		panic("invalid suite")
-	}
-}
-
-func serializeScalar(s *group.Scalar, length int) []byte {
-	e := s.Bytes()
-	for len(e) < length {
-		e = append([]byte{0x00}, e...)
-	}
-
-	return e
-}
-
-func serializePoint(e *group.Point, length int) []byte {
-	p := e.Bytes()
-
-	for len(p) < length {
-		p = append([]byte{0x00}, p...)
-	}
-
-	return p
-}
 
 func i2osp2(value int) []byte {
 	out := make([]byte, 2)
@@ -98,40 +38,40 @@ func ctEqual(a, b []byte) bool {
 	return subtle.ConstantTimeCompare(a, b) == 1
 }
 
-func (o *oprf) ccScalar(encSeed []byte, index int, ci, di *group.Point) *group.Scalar {
+func (o *oprf) ccScalar(encSeed []byte, index int, ci, di *group.Element) *group.Scalar {
 	input := concatenate(encSeed, i2osp2(index),
-		lengthPrefixEncode(serializePoint(ci, pointLength(o.id))),
-		lengthPrefixEncode(serializePoint(di, pointLength(o.id))),
+		lengthPrefixEncode(ci.Encode()),
+		lengthPrefixEncode(di.Encode()),
 		[]byte(dstComposite))
 
 	return o.HashToScalar(input)
 }
 
-func (o *oprf) computeCompositesFast(k *group.Scalar, encSeed []byte, cs, ds []*group.Point) (m, z *group.Point) {
-	m = o.group.Identity()
+func (o *oprf) computeCompositesFast(k *group.Scalar, encSeed []byte, cs, ds []*group.Element) (m, z *group.Element) {
+	m = o.group.NewElement().Identity()
 
 	for i, ci := range cs {
 		di := o.ccScalar(encSeed, i, ci, ds[i])
-		m = ci.Mult(di).Add(m)
+		m = ci.Copy().Multiply(di).Add(m)
 	}
 
-	return m, m.Mult(k)
+	return m, m.Copy().Multiply(k)
 }
 
-func (o *oprf) computeCompositesClient(encSeed []byte, cs, ds []*group.Point) (m, z *group.Point) {
-	m = o.group.Identity()
-	z = o.group.Identity()
+func (o *oprf) computeCompositesClient(encSeed []byte, cs, ds []*group.Element) (m, z *group.Element) {
+	m = o.group.NewElement().Identity()
+	z = o.group.NewElement().Identity()
 
 	for i, ci := range cs {
 		di := o.ccScalar(encSeed, i, ci, ds[i])
-		m = ci.Mult(di).Add(m)
-		z = ds[i].Mult(di).Add(z)
+		m = ci.Copy().Multiply(di).Add(m)
+		z = ds[i].Copy().Multiply(di).Add(z)
 	}
 
 	return m, z
 }
 
-func (o *oprf) computeComposites(k *group.Scalar, encGk []byte, cs, ds []*group.Point) (m, z *group.Point) {
+func (o *oprf) computeComposites(k *group.Scalar, encGk []byte, cs, ds []*group.Element) (m, z *group.Element) {
 	// DST
 	encSeedDST := lengthPrefixEncode(o.dst(dstSeed))
 
@@ -170,11 +110,11 @@ func concatenate(input ...[]byte) []byte {
 	return buf
 }
 
-func (o *oprf) challenge(encPks []byte, a0, a1, a2, a3 *group.Point) *group.Scalar {
-	encA0 := lengthPrefixEncode(serializePoint(a0, pointLength(o.id)))
-	encA1 := lengthPrefixEncode(serializePoint(a1, pointLength(o.id)))
-	encA2 := lengthPrefixEncode(serializePoint(a2, pointLength(o.id)))
-	encA3 := lengthPrefixEncode(serializePoint(a3, pointLength(o.id)))
+func (o *oprf) challenge(encPks []byte, a0, a1, a2, a3 *group.Element) *group.Scalar {
+	encA0 := lengthPrefixEncode(a0.Encode())
+	encA1 := lengthPrefixEncode(a1.Encode())
+	encA2 := lengthPrefixEncode(a2.Encode())
+	encA3 := lengthPrefixEncode(a3.Encode())
 	encDST := []byte(dstChallenge)
 	input := concatenate(encPks, encA0, encA1, encA2, encA3, encDST)
 
