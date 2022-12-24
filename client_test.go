@@ -8,48 +8,43 @@
 
 package voprf
 
-import (
-	"bytes"
-	"testing"
-)
+//func testExport(t *testing.T, client *voprf.Client, export *voprf.State) {
+//	if export.Ciphersuite != client.id {
+//		t.Fatal("group does not match")
+//	}
+//
+//	if export.Mode != client.mode {
+//		t.Fatal("mode is not correct")
+//	}
+//
+//	if !bytes.Equal(export.ServerPublicKey, client.serverPublicKey.Encode()) {
+//		t.Fatal("blind is not correct")
+//	}
+//
+//	for i, b := range client.input {
+//		if !bytes.Equal(export.Input[i], b) {
+//			t.Fatalf("input %d is not correct", i)
+//		}
+//	}
+//
+//	for i, b := range client.blind {
+//		if !bytes.Equal(export.Blind[i], b.Encode()) {
+//			t.Fatalf("blind %d is not correct", i)
+//		}
+//	}
+//}
 
-func testExport(t *testing.T, client *Client, export *State) {
-	if export.Ciphersuite != client.id {
-		t.Fatal("group does not match")
-	}
-
-	if export.Mode != client.mode {
-		t.Fatal("mode is not correct")
-	}
-
-	if !bytes.Equal(export.ServerPublicKey, client.serverPublicKey.Encode()) {
-		t.Fatal("blind is not correct")
-	}
-
-	for i, b := range client.input {
-		if !bytes.Equal(export.Input[i], b) {
-			t.Fatalf("input %d is not correct", i)
-		}
-	}
-
-	for i, b := range client.blind {
-		if !bytes.Equal(export.Blind[i], b.Encode()) {
-			t.Fatalf("blind %d is not correct", i)
-		}
-	}
-}
-
-func dummyClientExport(t *testing.T) (*Client, *State) {
-	suite := RistrettoSha512
-	input := []byte("input")
-	client, _ := suite.Client(OPRF, nil)
-	client.Blind(input, nil)
-	export := client.Export()
-
-	testExport(t, client, export)
-
-	return client, export
-}
+//func dummyClientExport(t *testing.T) (*voprf.Client, *voprf.State) {
+//	suite := voprf.RistrettoSha512
+//	input := []byte("input")
+//	client, _ := suite.Client(voprf.OPRF, nil)
+//	client.Blind(input, nil)
+//	export := client.Export()
+//
+//	testExport(t, client, export)
+//
+//	return client, export
+//}
 
 // func TestClient_Export(t *testing.T) {
 // 	dummyClientExport(t)
