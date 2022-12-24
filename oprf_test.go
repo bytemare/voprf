@@ -22,7 +22,6 @@ import (
 )
 
 type test struct {
-	Batch             int
 	Blind             [][]byte
 	BlindedElement    [][]byte
 	Info              []byte
@@ -32,22 +31,23 @@ type test struct {
 	ProofS            []byte
 	Input             [][]byte
 	Output            [][]byte
+	Batch             int
 }
 
 type testVectors []vector
 
 type testVector struct {
-	Batch             int    `json:"Batch"`
+	EvaluationProof struct {
+		Proof  string `json:"proof,omitempty"`
+		Random string `json:"r,omitempty"`
+	} `json:"Proof,omitempty"`
 	Blind             string `json:"Blind"`
 	BlindedElement    string `json:"BlindedElement"`
 	EvaluationElement string `json:"EvaluationElement"`
 	Info              string `json:"Info"`
-	EvaluationProof   struct {
-		Proof  string `json:"proof,omitempty"`
-		Random string `json:"r,omitempty"`
-	} `json:"Proof,omitempty"`
-	Input  string `json:"Input"`
-	Output string `json:"Output"`
+	Input             string `json:"Input"`
+	Output            string `json:"Output"`
+	Batch             int    `json:"Batch"`
 }
 
 func decodeBatch(nb int, in string) ([][]byte, error) {
@@ -167,13 +167,13 @@ func (tv *testVector) Decode() (*test, error) {
 type vector struct {
 	DST     string       `json:"groupDST"`
 	Hash    string       `json:"hash"`
-	Mode    Mode         `json:"mode"`
 	KeyInfo string       `json:"keyInfo"`
 	SksSeed string       `json:"seed"`
 	PkSm    string       `json:"pkSm,omitempty"`
 	SkSm    string       `json:"skSm"`
 	SuiteID string       `json:"identifier"`
 	Vectors []testVector `json:"vectors,omitempty"`
+	Mode    Mode         `json:"mode"`
 }
 
 func hashToHash(h string) hash.Identifier {
@@ -289,11 +289,19 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 	// Verify proofs
 	if mode == VOPRF || mode == POPRF {
 		if !bytes.Equal(test.ProofC, ev.ProofC) {
-			t.Errorf("unexpected c proof\n\twant %v\n\tgot  %v", hex.EncodeToString(test.ProofC), hex.EncodeToString(ev.ProofC))
+			t.Errorf(
+				"unexpected c proof\n\twant %v\n\tgot  %v",
+				hex.EncodeToString(test.ProofC),
+				hex.EncodeToString(ev.ProofC),
+			)
 		}
 
 		if !bytes.Equal(test.ProofS, ev.ProofS) {
-			t.Errorf("unexpected s proof\n\twant %v\n\tgot  %v", hex.EncodeToString(test.ProofS), hex.EncodeToString(ev.ProofS))
+			t.Errorf(
+				"unexpected s proof\n\twant %v\n\tgot  %v",
+				hex.EncodeToString(test.ProofS),
+				hex.EncodeToString(ev.ProofS),
+			)
 		}
 	}
 
@@ -390,7 +398,14 @@ func (v vector) test(t *testing.T) {
 			// Set up a new server.
 			server, err := suite.Server(mode, privKey)
 			if err != nil {
-				t.Fatalf("failed on setting up server %q\nvector value (%d) %v\ndecoded (%d) %v\n", err, len(v.SkSm), v.SkSm, len(privKey), privKey)
+				t.Fatalf(
+					"failed on setting up server %q\nvector value (%d) %v\ndecoded (%d) %v\n",
+					err,
+					len(v.SkSm),
+					v.SkSm,
+					len(privKey),
+					privKey,
+				)
 			}
 
 			if string(expectedDST) != string(dst(hash2groupDSTPrefix, o.contextString)) {

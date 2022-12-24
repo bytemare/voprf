@@ -66,7 +66,11 @@ func (s *Server) randomScalar() *group.Scalar {
 // EvaluateBatch evaluates the input batch of blindedElements and returns a pointer to the Evaluation. If the server
 // was set to be un VOPRF mode, the proof will be included in the Evaluation.
 func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluation, error) {
-	ev := &evaluation{}
+	ev := &evaluation{
+		proofC:   nil,
+		proofS:   nil,
+		elements: nil,
+	}
 	ev.elements = make([]*group.Element, len(blindedElements))
 
 	var blinded []*group.Element
