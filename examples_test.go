@@ -6,24 +6,25 @@
 // LICENSE file in the root directory of this source tree or at
 // https://spdx.org/licenses/MIT.html
 
-package voprf
+package voprf_test
 
 import (
 	"encoding/hex"
+	"github.com/bytemare/voprf"
 )
 
 func exchangeWithServer(blinded []byte, verifiable bool) []byte {
-	var server *Server
+	var server *voprf.Server
 	var err error
 	privateKey, _ := hex.DecodeString("8132542d5ed08594e7522b5eac6bee38bab5868996c25a3fd2a7739be1856b04")
 
 	if verifiable {
-		server, err = RistrettoSha512.Server(VOPRF, privateKey)
+		server, err = voprf.RistrettoSha512.Server(voprf.VOPRF, privateKey)
 		if err != nil {
 			panic(err)
 		}
 	} else {
-		server, err = RistrettoSha512.Server(OPRF, privateKey)
+		server, err = voprf.RistrettoSha512.Server(voprf.OPRF, privateKey)
 		if err != nil {
 			panic(err)
 		}
@@ -43,7 +44,7 @@ func ExampleClient() {
 	input := []byte("input")
 
 	// Set up a new client. Not indicating a server public key indicates we don't use the verifiable mode.
-	client, err := RistrettoSha512.Client(OPRF, nil)
+	client, err := voprf.RistrettoSha512.Client(voprf.OPRF, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -55,7 +56,7 @@ func ExampleClient() {
 	ev := exchangeWithServer(blinded, false)
 
 	// The client needs to decode the evaluation to finalize the process.
-	eval := new(Evaluation)
+	eval := new(voprf.Evaluation)
 	if err := eval.Deserialize(ev); err != nil {
 		panic(err)
 	}
@@ -69,12 +70,12 @@ func ExampleClient() {
 }
 
 func Example_verifiableClient() {
-	ciphersuite := RistrettoSha512
+	ciphersuite := voprf.RistrettoSha512
 	input := []byte("input")
 	serverPubKey, _ := hex.DecodeString("066c39841db2ca3c2e83e251e71b619013674149692ca2ab41d1b33a1a4fff38")
 
 	// Instantiate a new client with the preprocessed values.
-	client, err := ciphersuite.Client(VOPRF, serverPubKey)
+	client, err := ciphersuite.Client(voprf.VOPRF, serverPubKey)
 	if err != nil {
 		panic(err)
 	}
@@ -86,7 +87,7 @@ func Example_verifiableClient() {
 	ev := exchangeWithServer(blinded, true)
 
 	// The client needs to decode the evaluation to finalize the process.
-	eval := new(Evaluation)
+	eval := new(voprf.Evaluation)
 	if err := eval.Deserialize(ev); err != nil {
 		panic(err)
 	}
@@ -105,7 +106,7 @@ func Example_baseServer() {
 	blinded, _ := hex.DecodeString("7eaf3d7cbe43d54637274342ce53578b2aba836f297f4f07997a6e1dced1c058")
 
 	// Set up a new server. A private key is automatically created if none is given.
-	server, err := RistrettoSha512.Server(OPRF, nil)
+	server, err := voprf.RistrettoSha512.Server(voprf.OPRF, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -128,7 +129,7 @@ func Example_verifiableServer() {
 	blinded, _ := hex.DecodeString("7eaf3d7cbe43d54637274342ce53578b2aba836f297f4f07997a6e1dced1c058")
 
 	// Set up a new server.
-	server, err := RistrettoSha512.Server(VOPRF, privateKey)
+	server, err := voprf.RistrettoSha512.Server(voprf.VOPRF, privateKey)
 	if err != nil {
 		panic(err)
 	}

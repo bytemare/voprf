@@ -125,7 +125,7 @@ func (c *Client) Import(state *State) error {
 		return err
 	}
 
-	c.oprf = suites[state.Identifier].new(state.Mode)
+	c.oprf = state.Identifier.new(state.Mode)
 
 	if err := c.importPublicKey(state); err != nil {
 		return err

@@ -11,7 +11,6 @@ package voprf
 import (
 	"errors"
 	"fmt"
-
 	group "github.com/bytemare/crypto"
 )
 
@@ -37,80 +36,9 @@ type Client struct {
 	blindedElement []*group.Element
 }
 
-func (c *Client) initBlinding(length int) error {
-	if len(c.input) == 0 {
-		c.input = make([][]byte, length)
-	} else if len(c.input) != length {
-		return errArrayLength
-	}
-
-	if len(c.blind) == 0 {
-		c.blind = make([]*group.Scalar, length)
-	} else if len(c.blind) != length {
-		return errArrayLength
-	}
-
-	if len(c.blindedElement) == 0 {
-		c.blindedElement = make([]*group.Element, length)
-	} else if len(c.blindedElement) != length {
-		return errArrayLength
-	}
-
-	return nil
-}
-
-func (c *Client) verifyProof(ev *evaluation) error {
-	if ev.proofC == nil {
-		return errNilProofC
-	}
-
-	if ev.proofS == nil {
-		return errNilProofS
-	}
-
-	var pk *group.Element
-	var cs, ds []*group.Element
-
-	if c.oprf.mode == VOPRF {
-		cs, ds = c.blindedElement, ev.elements
-		pk = c.serverPublicKey
-	} else { // POPRF
-		cs, ds = ev.elements, c.blindedElement
-		pk = c.tweakedKey
-	}
-
-	return c.oprf.verifyProof(ev, pk, cs, ds)
-}
-
-func (c *Client) innerBlind(input, info []byte, index int) {
-	if c.blind[index] == nil {
-		c.blind[index] = c.group.NewScalar().Random()
-	}
-
-	c.input[index] = input
-
-	if c.oprf.mode == POPRF {
-		m := c.pTag(info)
-
-		t := c.group.Base().Multiply(m).Add(c.serverPublicKey)
-		if t.IsIdentity() {
-			panic(errInvalidInput)
-		}
-
-		c.tweakedKey = t
-	}
-
-	p := c.HashToGroup(input)
-	if p.IsIdentity() {
-		panic(errInvalidInput)
-	}
-
-	c.blindedElement[index] = p.Multiply(c.blind[index])
-}
-
-func (c *Client) unblind(evaluated *group.Element, blind *group.Scalar) *group.Element {
-	inv := blind.Copy().Invert()
-	return evaluated.Multiply(inv)
+// SetBlinds sets the inner blinds to those given as input.
+func (c *Client) SetBlinds(blind []*group.Scalar) {
+	c.blind = blind
 }
 
 // Blind blinds, or masks, the input with a preset or new random blinding element.
@@ -220,4 +148,80 @@ func (c *Client) FinalizeBatch(e *Evaluation, info []byte) ([][]byte, error) {
 	}
 
 	return out, nil
+}
+
+func (c *Client) initBlinding(length int) error {
+	if len(c.input) == 0 {
+		c.input = make([][]byte, length)
+	} else if len(c.input) != length {
+		return errArrayLength
+	}
+
+	if len(c.blind) == 0 {
+		c.blind = make([]*group.Scalar, length)
+	} else if len(c.blind) != length {
+		return errArrayLength
+	}
+
+	if len(c.blindedElement) == 0 {
+		c.blindedElement = make([]*group.Element, length)
+	} else if len(c.blindedElement) != length {
+		return errArrayLength
+	}
+
+	return nil
+}
+
+func (c *Client) verifyProof(ev *evaluation) error {
+	if ev.proofC == nil {
+		return errNilProofC
+	}
+
+	if ev.proofS == nil {
+		return errNilProofS
+	}
+
+	var pk *group.Element
+	var cs, ds []*group.Element
+
+	if c.oprf.mode == VOPRF {
+		cs, ds = c.blindedElement, ev.elements
+		pk = c.serverPublicKey
+	} else { // POPRF
+		cs, ds = ev.elements, c.blindedElement
+		pk = c.tweakedKey
+	}
+
+	return c.oprf.verifyProof(ev, pk, cs, ds)
+}
+
+func (c *Client) innerBlind(input, info []byte, index int) {
+	if c.blind[index] == nil {
+		c.blind[index] = c.group.NewScalar().Random()
+	}
+
+	c.input[index] = input
+
+	if c.oprf.mode == POPRF {
+		m := c.pTag(info)
+
+		t := c.group.Base().Multiply(m).Add(c.serverPublicKey)
+		if t.IsIdentity() {
+			panic(errInvalidInput)
+		}
+
+		c.tweakedKey = t
+	}
+
+	p := c.HashToGroup(input)
+	if p.IsIdentity() {
+		panic(errInvalidInput)
+	}
+
+	c.blindedElement[index] = p.Multiply(c.blind[index])
+}
+
+func (c *Client) unblind(evaluated *group.Element, blind *group.Scalar) *group.Element {
+	inv := blind.Copy().Invert()
+	return evaluated.Multiply(inv)
 }
