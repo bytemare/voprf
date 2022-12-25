@@ -69,7 +69,7 @@ func decodeBatch(nb int, in string) ([][]byte, error) {
 	return out, nil
 }
 
-func (t *test) Verify(suite Ciphersuite) error {
+func (t *test) Verify(suite Identifier) error {
 	g := suite.Group()
 
 	for i, b := range t.Blind {
@@ -171,7 +171,7 @@ type vector struct {
 	SksSeed string       `json:"seed"`
 	PkSm    string       `json:"pkSm,omitempty"`
 	SkSm    string       `json:"skSm"`
-	SuiteID string       `json:"identifier"`
+	SuiteID Identifier   `json:"identifier"`
 	Vectors []testVector `json:"vectors,omitempty"`
 	Mode    Mode         `json:"mode"`
 }
@@ -343,7 +343,7 @@ func (v vector) test(t *testing.T) {
 
 	// Get mode, hash function, and cipher suite
 	mode := v.Mode
-	suite := suitesID[v.SuiteID]
+	suite := v.SuiteID
 
 	privKey, err := hex.DecodeString(v.SkSm)
 	if err != nil {
@@ -455,6 +455,6 @@ func TestVOPRFVectors(t *testing.T) {
 			continue
 		}
 
-		t.Run(string(tv.Mode)+" - "+tv.SuiteID, tv.test)
+		t.Run(string(tv.Mode)+" - "+string(tv.SuiteID), tv.test)
 	}
 }

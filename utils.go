@@ -15,9 +15,9 @@ import (
 
 // KeyPair assembles a VOPRF key pair. The SecretKey can be used as the evaluation key for the group identified by ID.
 type KeyPair struct {
+	ID        Identifier
 	PublicKey []byte
 	SecretKey []byte
-	ID        Ciphersuite
 }
 
 func i2osp2(value int) []byte {

@@ -16,12 +16,12 @@ import (
 
 // State represents a client's state, allowing internal values to be exported and imported to resume a (V)OPRF session.
 type State struct {
-	ServerPublicKey []byte      `json:"p,omitempty"`
-	Input           [][]byte    `json:"i"`
-	Blind           [][]byte    `json:"r"`
-	Blinded         [][]byte    `json:"d"`
-	Ciphersuite     Ciphersuite `json:"s"`
-	Mode            Mode        `json:"m"`
+	Identifier      Identifier `json:"s"`
+	ServerPublicKey []byte     `json:"p,omitempty"`
+	Input           [][]byte   `json:"i"`
+	Blind           [][]byte   `json:"r"`
+	Blinded         [][]byte   `json:"d"`
+	Mode            Mode       `json:"m"`
 }
 
 // Export extracts the client's internal values that can be imported in another client for session resumption.
@@ -31,7 +31,7 @@ func (c *Client) Export() *State {
 		Input:           nil,
 		Blind:           nil,
 		Blinded:         nil,
-		Ciphersuite:     c.id,
+		Identifier:      c.id,
 		Mode:            c.mode,
 	}
 
@@ -57,7 +57,7 @@ func (c *Client) Export() *State {
 	return s
 }
 
-func (c *Client) Import(state *State) error {
+func (c *Client) importPrecheck(state *State) error {
 	if len(state.Input) != len(state.Blinded) {
 		return errStateDiffInput
 	}
@@ -70,8 +70,10 @@ func (c *Client) Import(state *State) error {
 		return errStateNoPubKey
 	}
 
-	c.oprf = suites[state.Ciphersuite].new(state.Mode)
+	return nil
+}
 
+func (c *Client) importPublicKey(state *State) error {
 	if state.ServerPublicKey != nil {
 		pk := c.group.NewElement()
 		if err := pk.Decode(state.ServerPublicKey); err != nil {
@@ -81,6 +83,10 @@ func (c *Client) Import(state *State) error {
 		c.serverPublicKey = pk
 	}
 
+	return nil
+}
+
+func (c *Client) importBlinds(state *State) error {
 	c.blind = make([]*group.Scalar, len(state.Blind))
 	for i := 0; i < len(state.Blind); i++ {
 		blind := c.group.NewScalar()
@@ -91,6 +97,10 @@ func (c *Client) Import(state *State) error {
 		c.blind[i] = blind
 	}
 
+	return nil
+}
+
+func (c *Client) importBlinded(state *State) error {
 	c.input = make([][]byte, len(state.Input))
 	c.blindedElement = make([]*group.Element, len(state.Blinded))
 
@@ -104,6 +114,29 @@ func (c *Client) Import(state *State) error {
 		}
 
 		c.blindedElement[i] = blinded
+	}
+
+	return nil
+}
+
+// Import populates the client's internal values with those found in the state, from which a session can be resumed.
+func (c *Client) Import(state *State) error {
+	if err := c.importPrecheck(state); err != nil {
+		return err
+	}
+
+	c.oprf = suites[state.Identifier].new(state.Mode)
+
+	if err := c.importPublicKey(state); err != nil {
+		return err
+	}
+
+	if err := c.importBlinds(state); err != nil {
+		return err
+	}
+
+	if err := c.importBlinded(state); err != nil {
+		return err
 	}
 
 	return nil
