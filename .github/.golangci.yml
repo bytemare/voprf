@@ -1,20 +1,32 @@
 linters:
   disable-all: true
   enable:
+    - asasalint
     - asciicheck
+    - bidichk
     - bodyclose
+    - containedctx
+    - contextcheck
     - cyclop
-    - deadcode
+    - decorder
     - depguard
     - dogsled
     - dupl
     - durationcheck
     - errcheck
+    - errchkjson
+    - errname
     - errorlint
+    - execinquery
+    - exhaustive
+    - exhaustruct
     - exportloopref
     - forbidigo
     - forcetypeassert
     - funlen
+    - gci
+    #- gochecknoglobals
+    #- gochecknoinits
     - gocognit
     - goconst
     - gocritic
@@ -26,35 +38,45 @@ linters:
     - gofumpt
     - goheader
     - goimports
-    - golint
-    - gomodguard
+    - gomnd
     - gomoddirectives
+    - gomodguard
     - goprintffuncname
     - gosec
     - gosimple
     - govet
-    - ifshort
+    - grouper
     - importas
     - ineffassign
+    - interfacebloat
+    - ireturn
     - lll
+    - logrlint
+    - maintidx
     - makezero
-    - maligned
-    - megacheck
     - misspell
     - nakedret
     - nestif
     - nilerr
+    - nilnil
+    - nlreturn
     - noctx
     - nolintlint
+    #- nonamedreturns
+    - nosprintfhostport
     - paralleltest
     - prealloc
     - predeclared
+    - promlinter
+    - reassign
     - revive
     - rowserrcheck
     - sqlclosecheck
     - staticcheck
-    - structcheck
     - stylecheck
+    - tagliatelle
+    - tenv
+    #- testableexamples
     - testpackage
     - thelper
     - tparallel
@@ -62,18 +84,12 @@ linters:
     - unconvert
     - unparam
     - unused
-    - varcheck
+    - usestdlibvars
+    #- varnamelen
     - wastedassign
     - whitespace
     - wrapcheck
     - wsl
-    #- exhaustive
-    #- exhaustivestruct
-    #- gci
-    #- gochecknoglobals
-    #- gochecknoinits
-    #- gomnd
-    #- nlreturn
   presets:
     - bugs
     - unused
@@ -85,9 +101,23 @@ linters-settings:
   errcheck:
     check-type-assertions: true
     check-blank: true
+    #exclude-functions:
+    #  - io/ioutil.ReadFile
+    #  - io.Copy(*bytes.Buffer)
+    #  - io.Copy(os.Stdout)
   funlen:
     lines: 100
     statements: 50
+  gci:
+    sections:
+      - standard # Standard section: captures all standard packages.
+      - default # Default section: contains all imports that could not be matched to another section type.
+      - prefix(github.com/bytemare/voprf) # Custom section: groups all imports with the specified Prefix.
+    skip-generated: true
+    # Enable custom order of sections.
+    # If `true`, make the section order the same as the order of `sections`.
+    # Default: false
+    custom-order: true
   gocognit:
     min-complexity: 15
   goconst:
@@ -103,7 +133,7 @@ linters-settings:
   gocyclo:
     min-complexity: 15
   godox:
-    keywords: # default keywords are TODO, BUG, and FIXME, these can be overwritten by this setting
+    keywords:
       - NOTE
       - OPTIMIZE
       - HACK
@@ -127,20 +157,44 @@ linters-settings:
           - assign
   govet:
     check-shadowing: true
-
-    # settings per analyzer
-    settings:
-      printf: # analyzer name, run `go tool vet help` to see all analyzers
-        funcs: # run `go tool vet help printf` to see available settings for `printf` analyzer
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
-
-    # enable or disable analyzers by name
+    disable-all: true
     enable:
+      - asmdecl
+      - assign
+      - atomic
       - atomicalign
-    disable-all: false
+      - bools
+      - buildtag
+      - cgocall
+      - composites
+      - copylocks
+      - deepequalerrors
+      - errorsas
+      - fieldalignment
+      - findcall
+      - framepointer
+      - httpresponse
+      - ifaceassert
+      - loopclosure
+      - lostcancel
+      - nilfunc
+      - nilness
+      - printf
+      - reflectvaluecompare
+      - shadow
+      - shift
+      - sigchanyzer
+      - sortslice
+      - stdmethods
+      - stringintconv
+      - structtag
+      - testinggoroutine
+      - tests
+      - unmarshal
+      - unreachable
+      - unsafeptr
+      - unusedresult
+      - unusedwrite
   depguard:
     list-type: blacklist
     packages:
@@ -150,13 +204,13 @@ linters-settings:
     packages-with-error-message:
       - github.com/sirupsen/logrus: "logging is allowed only by logutils.Log"
   lll:
-    line-length: 145
+    line-length: 120
     # tab width ('\t') in spaces. Default to 1.
     tab-width: 4
-  maligned:
-    suggest-new: true
   misspell:
     locale: US
+  nlreturn:
+    block-size: 2
   prealloc:
     simple: false
     for-loops: true

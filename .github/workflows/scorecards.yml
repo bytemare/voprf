@@ -1,14 +1,5 @@
-# This workflow uses actions that are not certified by GitHub. They are provided
-# by a third-party and are governed by separate terms of service, privacy
-# policy, and support documentation.
-
 name: Scorecards supply-chain security
 on:
-  # For Branch-Protection check. Only the default branch is supported. See
-  # https://github.com/ossf/scorecard/blob/main/docs/checks.md#branch-protection
-  branch_protection_rule:
-  # To guarantee Maintained check is occasionally updated. See
-  # https://github.com/ossf/scorecard/blob/main/docs/checks.md#maintained
   schedule:
     - cron: '16 23 * * 2'
   push:
@@ -26,10 +17,6 @@ jobs:
       security-events: write
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
-      # Uncomment the permissions below if installing in a private repository.
-      # contents: read
-      # actions: read
-
     steps:
       - name: "Checkout code"
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
@@ -41,11 +28,7 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          # (Optional) "write" PAT token. Uncomment the `repo_token` line below if:
-          # - you want to enable the Branch-Protection check on a *public* repository, or
-          # - you are installing Scorecards on a *private* repository
-          # To create the PAT, follow the steps in https://github.com/ossf/scorecard-action#authentication-with-pat.
-          # repo_token: ${{ secrets.SCORECARD_TOKEN }}
+          repo_token: ${{ secrets.SCORECARD_TOKEN }}
 
           # Public repositories:
           #   - Publish results to OpenSSF REST API for easy access by consumers

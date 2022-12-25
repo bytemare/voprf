@@ -20,7 +20,9 @@ var (
 	errNilProofC          = errors.New("c proof is nil or empty")
 	errNilProofS          = errors.New("s proof is nil or empty")
 	errInvalidNumElements = errors.New("invalid number of element ")
-	errInvalidInput       = errors.New("invalid input - OPRF input deterministically maps to the group identity element")
+	errInvalidInput       = errors.New(
+		"invalid input - OPRF input deterministically maps to the group identity element",
+	)
 )
 
 // Client represents the Client/Verifier party in a (V)OPRF protocol session,

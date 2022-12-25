@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree or at
+// https://spdx.org/licenses/MIT.html
+
 package voprf
 
 import (
@@ -7,9 +15,9 @@ import (
 
 // KeyPair assembles a VOPRF key pair. The SecretKey can be used as the evaluation key for the group identified by ID.
 type KeyPair struct {
-	ID        Ciphersuite
 	PublicKey []byte
 	SecretKey []byte
+	ID        Ciphersuite
 }
 
 func i2osp2(value int) []byte {

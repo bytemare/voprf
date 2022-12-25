@@ -138,11 +138,11 @@ func (c Ciphersuite) Server(mode Mode, privateKey []byte) (*Server, error) {
 }
 
 type oprf struct {
+	hash          *hash.Hash
+	contextString []byte
 	id            Ciphersuite
 	mode          Mode
 	group         group.Group
-	hash          *hash.Hash
-	contextString []byte
 }
 
 func contextString(mode Mode, id Ciphersuite) []byte {
@@ -195,7 +195,14 @@ func (o *oprf) HashToScalar(data []byte) *group.Scalar {
 }
 
 func (c Ciphersuite) client(mode Mode) *Client {
-	return &Client{oprf: suites[c].new(mode)}
+	return &Client{
+		tweakedKey:      nil,
+		serverPublicKey: nil,
+		oprf:            suites[c].new(mode),
+		input:           nil,
+		blind:           nil,
+		blindedElement:  nil,
+	}
 }
 
 func (c *Client) setServerPublicKey(serverPublicKey []byte) error {
@@ -215,7 +222,10 @@ func (c *Client) setServerPublicKey(serverPublicKey []byte) error {
 
 func (c Ciphersuite) server(mode Mode, privateKey []byte) (*Server, error) {
 	s := &Server{
-		oprf: suites[c].new(mode),
+		privateKey: nil,
+		publicKey:  nil,
+		oprf:       suites[c].new(mode),
+		nonceR:     nil,
 	}
 
 	if privateKey == nil {
@@ -241,19 +251,21 @@ func (o *oprf) pTag(info []byte) *group.Scalar {
 	return o.HashToScalar(framedInfo)
 }
 
-func (o *oprf) hashTranscript(input, info, unblinded []byte) (hash []byte) {
+func (o *oprf) hashTranscript(input, info, unblinded []byte) []byte {
 	encInput := lengthPrefixEncode(input)
 	encElement := lengthPrefixEncode(unblinded)
 	encDST := []byte(dstFinalize)
 
+	var h []byte
+
 	if info == nil { // OPRF and VOPRF
-		hash = o.hash.Hash(encInput, encElement, encDST)
+		h = o.hash.Hash(encInput, encElement, encDST)
 	} else { // POPRF
 		encInfo := lengthPrefixEncode(info)
-		hash = o.hash.Hash(encInput, encInfo, encElement, encDST)
+		h = o.hash.Hash(encInput, encInfo, encElement, encDST)
 	}
 
-	return hash
+	return h
 }
 
 // String implements the Stringer() interface for the Ciphersuite.
@@ -276,8 +288,11 @@ func (c Ciphersuite) String() string {
 
 func (c Ciphersuite) register(g group.Group, h hash.Hashing, id string) {
 	o := &oprf{
-		id:   c,
-		hash: h.Get(),
+		hash:          h.Get(),
+		contextString: nil,
+		id:            c,
+		mode:          0,
+		group:         0,
 	}
 
 	suites[c] = o

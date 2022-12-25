@@ -80,7 +80,11 @@ func (o *oprf) challenge(encPks []byte, a0, a1, a2, a3 *group.Element) *group.Sc
 	return o.HashToScalar(input)
 }
 
-func (o *oprf) generateProof(random, k *group.Scalar, pk *group.Element, cs, ds []*group.Element) (proofC, proofS *group.Scalar) {
+func (o *oprf) generateProof(
+	random, k *group.Scalar,
+	pk *group.Element,
+	cs, ds []*group.Element,
+) (proofC, proofS *group.Scalar) {
 	encPk := lengthPrefixEncode(pk.Encode())
 	a0, a1 := o.computeComposites(k, encPk, cs, ds)
 

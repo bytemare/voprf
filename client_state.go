@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree or at
+// https://spdx.org/licenses/MIT.html
+
 package voprf
 
 import (
@@ -8,19 +16,23 @@ import (
 
 // State represents a client's state, allowing internal values to be exported and imported to resume a (V)OPRF session.
 type State struct {
-	Ciphersuite     Ciphersuite `json:"s"`
-	Mode            Mode        `json:"m"`
 	ServerPublicKey []byte      `json:"p,omitempty"`
 	Input           [][]byte    `json:"i"`
 	Blind           [][]byte    `json:"r"`
 	Blinded         [][]byte    `json:"d"`
+	Ciphersuite     Ciphersuite `json:"s"`
+	Mode            Mode        `json:"m"`
 }
 
 // Export extracts the client's internal values that can be imported in another client for session resumption.
 func (c *Client) Export() *State {
 	s := &State{
-		Ciphersuite: c.id,
-		Mode:        c.mode,
+		ServerPublicKey: nil,
+		Input:           nil,
+		Blind:           nil,
+		Blinded:         nil,
+		Ciphersuite:     c.id,
+		Mode:            c.mode,
 	}
 
 	if c.serverPublicKey != nil {

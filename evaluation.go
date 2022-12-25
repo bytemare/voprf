@@ -88,6 +88,8 @@ func (e *Evaluation) Deserialize(input []byte) error {
 // deserialize returns a structure with the internal representations of the evaluated elements and proofs.
 func (e *Evaluation) deserialize(g group.Group) (*evaluation, error) {
 	eval := &evaluation{
+		proofC:   nil,
+		proofS:   nil,
 		elements: make([]*group.Element, len(e.Elements)),
 	}
 
@@ -119,15 +121,17 @@ func (e *Evaluation) deserialize(g group.Group) (*evaluation, error) {
 
 // evaluation holds the evaluated elements and proofs in their internal representations.
 type evaluation struct {
-	elements []*group.Element
 	proofC   *group.Scalar
 	proofS   *group.Scalar
+	elements []*group.Element
 }
 
 // serialize the components of the evaluation into byte arrays to be exposed in API.
 func (e *evaluation) serialize() *Evaluation {
 	ev := &Evaluation{
 		Elements: make([][]byte, len(e.elements)),
+		ProofC:   nil,
+		ProofS:   nil,
 	}
 
 	for i, el := range e.elements {
