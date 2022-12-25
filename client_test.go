@@ -9,7 +9,7 @@
 package voprf
 
 //func testExport(t *testing.T, client *voprf.Client, export *voprf.State) {
-//	if export.Ciphersuite != client.id {
+//	if export.Identifier != client.id {
 //		t.Fatal("group does not match")
 //	}
 //

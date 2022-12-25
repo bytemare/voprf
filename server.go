@@ -164,7 +164,7 @@ func (s *Server) PublicKey() []byte {
 	return s.publicKey.Encode()
 }
 
-// Ciphersuite returns the cipher suite used in s' instance.
-func (s *Server) Ciphersuite() Ciphersuite {
+// Identifier returns the cipher suite used in s' instance.
+func (s *Server) Identifier() Identifier {
 	return s.oprf.id
 }

@@ -9,15 +9,15 @@ Package voprf provides abstracted access to Oblivious Pseudorandom Functions (OP
 
 This implementation supports the OPRF, VOPRF, and POPRF protocols as specified in the latest [internet draft](https://tools.ietf.org/html/draft-irtf-cfrg-voprf).
 
-## Ciphersuites and bit security
+## Identifiers and bit security
 
-| Ciphersuite     | Identifier | Bit security |        Implementation         |
-|:----------------|:----------:|:------------:|:-----------------------------:|
-| RistrettoSha512 |   0x0001   |     128      | github.com/gtank/ristretto255 |
-| ~~Decaf448~~    |   0x0002   |     224      |        not implemented        |
-| P256Sha512      |   0x0003   |     128      | github.com/armfazh/h2c-go-ref |
-| P384Sha384      |   0x0004   |     192      | github.com/armfazh/h2c-go-ref |
-| P521Sha512      |   0x0005   |     256      | github.com/armfazh/h2c-go-ref |
+| Identifier            | Bit security |        Implementation         |
+|:----------------------|:------------:|:-----------------------------:|
+| ristretto255-SHA512   |     128      | github.com/gtank/ristretto255 |
+| ~~decaf448-SHAKE256~~ |     224      |        not implemented        |
+| P256-SHA256           |     128      | github.com/armfazh/h2c-go-ref |
+| P384-SHA384           |     192      | github.com/armfazh/h2c-go-ref |
+| P521-SHA512           |     256      | github.com/armfazh/h2c-go-ref |
 
 ## Versioning
 
