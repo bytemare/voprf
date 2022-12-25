@@ -10,6 +10,7 @@ package voprf_test
 
 import (
 	"encoding/hex"
+
 	"github.com/bytemare/voprf"
 )
 

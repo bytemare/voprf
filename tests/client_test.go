@@ -6,7 +6,7 @@
 // LICENSE file in the root directory of this source tree or at
 // https://spdx.org/licenses/MIT.html
 
-package voprf_test_test
+package voprf_test
 
 //func testExport(t *testing.T, client *voprf.Client, export *voprf.State) {
 //	if export.Identifier != client.id {

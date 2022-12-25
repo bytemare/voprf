@@ -11,6 +11,7 @@ package voprf
 import (
 	"errors"
 	"fmt"
+
 	group "github.com/bytemare/crypto"
 )
 

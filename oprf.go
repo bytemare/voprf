@@ -71,10 +71,10 @@ var (
 func (c Identifier) new(mode Mode) *oprf {
 	return &oprf{
 		hash:          hashes[c].Get(),
-		contextString: nil,
+		contextString: contextString(mode, c),
 		id:            c,
 		mode:          mode,
-		group:         0,
+		group:         groups[c],
 	}
 }
 
@@ -157,14 +157,6 @@ func contextString(mode Mode, id Identifier) []byte {
 	ctx = append(ctx, id.String()...)
 
 	return ctx
-}
-
-func (o *oprf) new(mode Mode) *oprf {
-	o.mode = mode
-	o.contextString = contextString(mode, o.id)
-	o.group = groups[o.id]
-
-	return o
 }
 
 // DeriveKeyPair deterministically generates a private and public key pair from input seed.

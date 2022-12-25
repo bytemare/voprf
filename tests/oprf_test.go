@@ -13,22 +13,17 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/bytemare/voprf"
 	"os"
 	"strings"
 	"testing"
 
 	group "github.com/bytemare/crypto"
 	"github.com/bytemare/hash"
-)
 
-const (
-	hash2groupDSTPrefix  = "HashToGroup-"
-	hash2scalarDSTPrefix = "HashToScalar-"
+	"github.com/bytemare/voprf"
 )
 
 type test struct {
-	ID                voprf.Identifier
 	Blind             [][]byte
 	BlindedElement    [][]byte
 	Info              []byte
@@ -41,9 +36,8 @@ type test struct {
 	Batch             int
 }
 
-type testVectors []vector
-
 type testVector struct {
+	ID              voprf.Identifier `json:"proof,omitempty"`
 	EvaluationProof struct {
 		Proof  string `json:"proof,omitempty"`
 		Random string `json:"r,omitempty"`
@@ -171,16 +165,18 @@ func (tv *testVector) Decode() (*test, error) {
 	}, nil
 }
 
+type vectors []vector
+
 type vector struct {
-	DST     string           `json:"groupDST"`
-	Hash    string           `json:"hash"`
-	KeyInfo string           `json:"keyInfo"`
-	SksSeed string           `json:"seed"`
-	PkSm    string           `json:"pkSm,omitempty"`
-	SkSm    string           `json:"skSm"`
-	SuiteID voprf.Identifier `json:"identifier"`
-	Vectors []testVector     `json:"vectors,omitempty"`
-	Mode    voprf.Mode       `json:"mode"`
+	DST         string           `json:"groupDST"`
+	Hash        string           `json:"hash"`
+	KeyInfo     string           `json:"keyInfo"`
+	SksSeed     string           `json:"seed"`
+	PkSm        string           `json:"pkSm,omitempty"`
+	SkSm        string           `json:"skSm"`
+	SuiteID     voprf.Identifier `json:"identifier"`
+	TestVectors []testVector     `json:"vectors,omitempty"`
+	Mode        voprf.Mode       `json:"mode"`
 }
 
 func hashToHash(h string) hash.Identifier {
@@ -258,12 +254,19 @@ func testBlindBatchWithBlinds(t *testing.T, client *voprf.Client, inputs, blinds
 	}
 }
 
-func testOPRF(t *testing.T, mode voprf.Mode, client *voprf.Client, server *voprf.Server, test *test) {
+func testOPRF(
+	t *testing.T,
+	id voprf.Identifier,
+	mode voprf.Mode,
+	client *voprf.Client,
+	server *voprf.Server,
+	test *test,
+) {
 	var err error
 
 	// OPRFClient Blinding
 	if test.Batch == 1 {
-		testBlind(t, test.ID, client, test.Input[0], test.Blind[0], test.BlindedElement[0], test.Info)
+		testBlind(t, id, client, test.Input[0], test.Blind[0], test.BlindedElement[0], test.Info)
 	} else {
 		testBlindBatchWithBlinds(t, client, test.Input, test.Blind, test.BlindedElement, test.Info)
 	}
@@ -344,15 +347,6 @@ func testOPRF(t *testing.T, mode voprf.Mode, client *voprf.Client, server *voprf
 	}
 }
 
-func dst(prefix string, contextString []byte) []byte {
-	p := []byte(prefix)
-	t := make([]byte, 0, len(p)+len(contextString))
-	t = append(t, p...)
-	t = append(t, contextString...)
-
-	return t
-}
-
 func (v vector) test(t *testing.T) {
 	// Check mode, hash function, and cipher suite
 	v.checkParams(t)
@@ -381,7 +375,7 @@ func (v vector) test(t *testing.T) {
 	}
 
 	// Test Multiplicative Mode
-	for i, tv := range v.Vectors {
+	for i, tv := range v.TestVectors {
 		t.Run(fmt.Sprintf("Vector %d", i), func(t *testing.T) {
 			test, err := tv.Decode()
 			if err != nil {
@@ -403,9 +397,7 @@ func (v vector) test(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			o := voprf.suites[suite].new(mode)
-
-			sks, _ := o.DeriveKeyPair(seed, keyInfo)
+			sks, _ := deriveKeyPair(seed, keyInfo, mode, suite)
 			// log.Printf("sks %v", hex.EncodeToString(serializeScalar(sks, scalarLength(o.id))))
 			if !bytes.Equal(sks.Encode(), privKey) {
 				t.Fatalf("DeriveKeyPair yields unexpected output\n\twant: %v\n\tgot : %v", privKey, sks.Encode())
@@ -424,7 +416,7 @@ func (v vector) test(t *testing.T) {
 				)
 			}
 
-			if string(expectedDST) != string(dst(hash2groupDSTPrefix, o.contextString)) {
+			if string(expectedDST) != string(dst(hash2groupDSTPrefix, contextString(mode, suite))) {
 				t.Fatal("GroupDST output is not valid.")
 			}
 
@@ -433,23 +425,23 @@ func (v vector) test(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if string(expectedDST) != string(dst(hash2groupDSTPrefix, o.contextString)) {
+			if string(expectedDST) != string(dst(hash2groupDSTPrefix, contextString(mode, suite))) {
 				t.Fatal("GroupDST output is not valid.")
 			}
 
 			// test protocol execution
-			testOPRF(t, mode, client, server, test)
+			testOPRF(t, v.SuiteID, mode, client, server, test)
 		})
 	}
 }
 
-func loadVOPRFVectors(filepath string) (testVectors, error) {
+func loadVOPRFVectors(filepath string) (vectors, error) {
 	contents, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	}
 
-	var v testVectors
+	var v vectors
 	errJSON := json.Unmarshal(contents, &v)
 	if errJSON != nil {
 		return nil, errJSON
@@ -459,7 +451,7 @@ func loadVOPRFVectors(filepath string) (testVectors, error) {
 }
 
 func TestVOPRFVectors(t *testing.T) {
-	vectorFile := "test/allVectors.json"
+	vectorFile := "allVectors.json"
 
 	v, err := loadVOPRFVectors(vectorFile)
 	if err != nil || v == nil {
