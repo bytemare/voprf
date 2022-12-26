@@ -78,6 +78,24 @@ func (c Identifier) new(mode Mode) *oprf {
 	}
 }
 
+// Available returns whether the Identifier is registered and available for usage.
+func (c Identifier) Available() bool {
+	// Check for invalid identifiers
+	switch c {
+	case RistrettoSha512, P256Sha256, P384Sha384, P521Sha512:
+		break
+	default:
+		return false
+	}
+
+	// Check for unregistered groups
+	if _, ok := groups[c]; !ok {
+		return false
+	}
+
+	return true
+}
+
 // Group returns the group identifier used in the cipher suite.
 func (c Identifier) Group() group.Group {
 	return groups[c]
@@ -117,14 +135,16 @@ func (c Identifier) Client(mode Mode, serverPublicKey []byte) (*Client, error) {
 		return nil, errParamInvalidMode
 	}
 
-	if (mode == VOPRF || mode == POPRF) && serverPublicKey == nil {
-		return nil, errParamNoPubKey
-	}
-
 	client := c.client(mode)
 
-	if err := client.setServerPublicKey(serverPublicKey); err != nil {
-		return nil, err
+	if mode == VOPRF || mode == POPRF {
+		if serverPublicKey == nil {
+			return nil, errParamNoPubKey
+		}
+
+		if err := client.setServerPublicKey(serverPublicKey); err != nil {
+			return nil, err
+		}
 	}
 
 	return client, nil
@@ -269,8 +289,12 @@ func (c Identifier) String() string {
 }
 
 func (c Identifier) register(g group.Group, h hash.Hashing) {
-	groups[c] = g
-	hashes[c] = h
+	if g.Available() && h.Available() {
+		groups[c] = g
+		hashes[c] = h
+	} else {
+		panic(fmt.Sprintf("OPRF dependencies not available - Group: %v, Hash: %v", g.Available(), h.Available()))
+	}
 }
 
 func init() {

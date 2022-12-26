@@ -8,59 +8,53 @@
 
 package voprf_test
 
-//func testExport(t *testing.T, client *voprf.Client, export *voprf.State) {
-//	if export.Identifier != client.id {
-//		t.Fatal("group does not match")
-//	}
-//
-//	if export.Mode != client.mode {
-//		t.Fatal("mode is not correct")
-//	}
-//
-//	if !bytes.Equal(export.ServerPublicKey, client.serverPublicKey.Encode()) {
-//		t.Fatal("blind is not correct")
-//	}
-//
-//	for i, b := range client.input {
-//		if !bytes.Equal(export.Input[i], b) {
-//			t.Fatalf("input %d is not correct", i)
-//		}
-//	}
-//
-//	for i, b := range client.blind {
-//		if !bytes.Equal(export.Blind[i], b.Encode()) {
-//			t.Fatalf("blind %d is not correct", i)
-//		}
-//	}
-//}
+import (
+	"encoding/json"
+	"fmt"
+	"testing"
 
-//func dummyClientExport(t *testing.T) (*voprf.Client, *voprf.State) {
-//	suite := voprf.RistrettoSha512
-//	input := []byte("input")
-//	client, _ := suite.Client(voprf.OPRF, nil)
-//	client.Blind(input, nil)
-//	export := client.Export()
-//
-//	testExport(t, client, export)
-//
-//	return client, export
-//}
+	"github.com/google/go-cmp/cmp"
 
-// func TestClient_Export(t *testing.T) {
-// 	dummyClientExport(t)
-// }
-//
-// func TestClient_Import(t *testing.T) {
-// 	client, export := dummyClientExport(t)
-//
-// 	clientCopy, _ := RistrettoSha512.Client(OPRF, nil)
-// 	if err := clientCopy.Import(export); err != nil {
-// 		panic(err)
-// 	}
-//
-// 	if !reflect.DeepEqual(client, clientCopy) {
-// 		t.Fatal("Export encoding/decoding failed.")
-// 	}
-//
-// 	testExport(t, clientCopy, export)
-// }
+	"github.com/bytemare/voprf"
+)
+
+func TestClient_State(t *testing.T) {
+	suite := voprf.RistrettoSha512
+	input := []byte("input")
+	kp := suite.KeyGen()              // only used in VOPRF and POPRF
+	info := []byte("additional data") // only used in POPRF
+
+	for _, mode := range []voprf.Mode{voprf.OPRF, voprf.VOPRF, voprf.POPRF} {
+		t.Run(fmt.Sprintf("State test for mode %v", mode), func(t *testing.T) {
+			client, err := suite.Client(mode, kp.PublicKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			client.Blind(input, info)
+
+			export := client.Export()
+
+			serialized, err := json.Marshal(export)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			state := &voprf.State{}
+			if err := json.Unmarshal(serialized, state); err != nil {
+				t.Fatal(err)
+			}
+
+			resumed, err := state.RecoverClient()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			export2 := resumed.Export()
+
+			if !cmp.Equal(export, export2) {
+				t.Fatal("states are not equal")
+			}
+		})
+	}
+}

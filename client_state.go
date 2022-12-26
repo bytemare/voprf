@@ -14,9 +14,10 @@ import (
 	group "github.com/bytemare/crypto"
 )
 
-// State represents a client's state, allowing internal values to be exported and imported to resume a (V)OPRF session.
+// State represents a client's state, allowing internal values to be exported and imported to resume a session.
 type State struct {
 	Identifier      Identifier `json:"s"`
+	TweakedKey      []byte     `json:"t,omitempty"`
 	ServerPublicKey []byte     `json:"p,omitempty"`
 	Input           [][]byte   `json:"i"`
 	Blind           [][]byte   `json:"r"`
@@ -27,16 +28,21 @@ type State struct {
 // Export extracts the client's internal values that can be imported in another client for session resumption.
 func (c *Client) Export() *State {
 	s := &State{
+		Identifier:      c.id,
+		TweakedKey:      nil,
 		ServerPublicKey: nil,
 		Input:           nil,
 		Blind:           nil,
 		Blinded:         nil,
-		Identifier:      c.id,
 		Mode:            c.mode,
 	}
 
 	if c.serverPublicKey != nil {
 		s.ServerPublicKey = c.serverPublicKey.Encode()
+	}
+
+	if c.tweakedKey != nil {
+		s.TweakedKey = c.tweakedKey.Encode()
 	}
 
 	if len(c.input) != len(c.blind) {
@@ -57,7 +63,44 @@ func (c *Client) Export() *State {
 	return s
 }
 
-func (c *Client) importPrecheck(state *State) error {
+// RecoverClient returns a Client recovered form the state, from which a session can be resumed.
+func (s *State) RecoverClient() (*Client, error) {
+	if s.Mode != OPRF && s.Mode != VOPRF && s.Mode != POPRF {
+		return nil, errParamInvalidMode
+	}
+
+	if !s.Identifier.Available() {
+		return nil, errParamInvalidID
+	}
+
+	c := s.Identifier.client(s.Mode)
+
+	if err := importPrecheck(s); err != nil {
+		return nil, err
+	}
+
+	c.oprf = s.Identifier.new(s.Mode)
+
+	if err := c.importTweakedKey(s); err != nil {
+		return nil, err
+	}
+
+	if err := c.importPublicKey(s); err != nil {
+		return nil, err
+	}
+
+	if err := c.importBlinds(s); err != nil {
+		return nil, err
+	}
+
+	if err := c.importBlinded(s); err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func importPrecheck(state *State) error {
 	if len(state.Input) != len(state.Blinded) {
 		return errStateDiffInput
 	}
@@ -68,6 +111,19 @@ func (c *Client) importPrecheck(state *State) error {
 
 	if state.Mode == VOPRF && state.ServerPublicKey == nil {
 		return errStateNoPubKey
+	}
+
+	return nil
+}
+
+func (c *Client) importTweakedKey(state *State) error {
+	if state.TweakedKey != nil {
+		t := c.group.NewElement()
+		if err := t.Decode(state.TweakedKey); err != nil {
+			return fmt.Errorf("tweaked key - %w", err)
+		}
+
+		c.tweakedKey = t
 	}
 
 	return nil
@@ -114,29 +170,6 @@ func (c *Client) importBlinded(state *State) error {
 		}
 
 		c.blindedElement[i] = blinded
-	}
-
-	return nil
-}
-
-// Import populates the client's internal values with those found in the state, from which a session can be resumed.
-func (c *Client) Import(state *State) error {
-	if err := c.importPrecheck(state); err != nil {
-		return err
-	}
-
-	c.oprf = state.Identifier.new(state.Mode)
-
-	if err := c.importPublicKey(state); err != nil {
-		return err
-	}
-
-	if err := c.importBlinds(state); err != nil {
-		return err
-	}
-
-	if err := c.importBlinded(state); err != nil {
-		return err
 	}
 
 	return nil
