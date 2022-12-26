@@ -85,6 +85,6 @@ jobs:
             -Dsonar.projectKey=bytemare_voprf
             -Dsonar.go.coverage.reportPaths=.github/coverage.out
             -Dsonar.sources=.
-            -Dsonar.test.exclusions=examples_test.go,test/**,*_test.go
-            -Dsonar.coverage.exclusions=examples_test.go,test/**,*_test.go
-            -Dsonar.tests=. -Dsonar.verbose=true
+            -Dsonar.tests=examples_test.go,tests/
+            -Dsonar.test.exclusions=examples_test.go,tests/
+            -Dsonar.coverage.exclusions=examples_test.go,tests/-Dsonar.verbose=true
