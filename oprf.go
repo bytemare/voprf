@@ -64,29 +64,57 @@ const (
 )
 
 var (
-	suites      = make(map[Identifier]*oprf, nbIDs)
-	groupToOprf = make(map[group.Group]Identifier, nbIDs)
-	oprfToGroup = make(map[Identifier]group.Group, nbIDs)
+	groups = make(map[Identifier]group.Group, nbIDs)
+	hashes = make(map[Identifier]hash.Hashing, nbIDs)
 )
+
+func (c Identifier) new(mode Mode) *oprf {
+	return &oprf{
+		hash:          hashes[c].Get(),
+		contextString: contextString(mode, c),
+		id:            c,
+		mode:          mode,
+		group:         groups[c],
+	}
+}
+
+// Available returns whether the Identifier is registered and available for usage.
+func (c Identifier) Available() bool {
+	// Check for invalid identifiers
+	switch c {
+	case RistrettoSha512, P256Sha256, P384Sha384, P521Sha512:
+		break
+	default:
+		return false
+	}
+
+	// Check for unregistered groups
+	if _, ok := groups[c]; !ok {
+		return false
+	}
+
+	return true
+}
 
 // Group returns the group identifier used in the cipher suite.
 func (c Identifier) Group() group.Group {
-	return oprfToGroup[c]
+	return groups[c]
 }
 
 // Hash returns the hash function identifier used in the cipher suite.
 func (c Identifier) Hash() hash.Hashing {
-	return suites[c].hash.Hashing
+	return hashes[c]
 }
 
 // FromGroup returns a (V)OPRF Identifier given a Group Identifier.
-func FromGroup(id group.Group) (Identifier, error) {
-	c, ok := groupToOprf[id]
-	if !ok {
-		return "", errParamInvalidID
+func FromGroup(g group.Group) (Identifier, error) {
+	for k, v := range groups {
+		if v == g {
+			return k, nil
+		}
 	}
 
-	return c, nil
+	return "", errParamInvalidID
 }
 
 // KeyGen returns a fresh KeyPair for the given cipher suite.
@@ -107,14 +135,16 @@ func (c Identifier) Client(mode Mode, serverPublicKey []byte) (*Client, error) {
 		return nil, errParamInvalidMode
 	}
 
-	if (mode == VOPRF || mode == POPRF) && serverPublicKey == nil {
-		return nil, errParamNoPubKey
-	}
-
 	client := c.client(mode)
 
-	if err := client.setServerPublicKey(serverPublicKey); err != nil {
-		return nil, err
+	if mode == VOPRF || mode == POPRF {
+		if serverPublicKey == nil {
+			return nil, errParamNoPubKey
+		}
+
+		if err := client.setServerPublicKey(serverPublicKey); err != nil {
+			return nil, err
+		}
 	}
 
 	return client, nil
@@ -147,14 +177,6 @@ func contextString(mode Mode, id Identifier) []byte {
 	ctx = append(ctx, id.String()...)
 
 	return ctx
-}
-
-func (o *oprf) new(mode Mode) *oprf {
-	o.mode = mode
-	o.contextString = contextString(mode, o.id)
-	o.group = oprfToGroup[o.id]
-
-	return o
 }
 
 // DeriveKeyPair deterministically generates a private and public key pair from input seed.
@@ -191,7 +213,7 @@ func (c Identifier) client(mode Mode) *Client {
 	return &Client{
 		tweakedKey:      nil,
 		serverPublicKey: nil,
-		oprf:            suites[c].new(mode),
+		oprf:            c.new(mode),
 		input:           nil,
 		blind:           nil,
 		blindedElement:  nil,
@@ -217,7 +239,7 @@ func (c Identifier) server(mode Mode, privateKey []byte) (*Server, error) {
 	s := &Server{
 		privateKey: nil,
 		publicKey:  nil,
-		oprf:       suites[c].new(mode),
+		oprf:       c.new(mode),
 		nonceR:     nil,
 	}
 
@@ -267,17 +289,12 @@ func (c Identifier) String() string {
 }
 
 func (c Identifier) register(g group.Group, h hash.Hashing) {
-	o := &oprf{
-		hash:          h.Get(),
-		contextString: nil,
-		id:            c,
-		mode:          0,
-		group:         0,
+	if g.Available() && h.Available() {
+		groups[c] = g
+		hashes[c] = h
+	} else {
+		panic(fmt.Sprintf("OPRF dependencies not available - Group: %v, Hash: %v", g.Available(), h.Available()))
 	}
-
-	suites[c] = o
-	groupToOprf[g] = c
-	oprfToGroup[c] = g
 }
 
 func init() {

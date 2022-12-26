@@ -41,7 +41,7 @@ test:
 .PHONY: vectors
 vectors:
 	@echo "Testing vectors ..."
-	@go test -v ../...
+	@go test -v ../tests/...
 
 .PHONY: cover
 cover:

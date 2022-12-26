@@ -28,6 +28,11 @@ func (s *Server) KeyGen() {
 	s.publicKey = s.group.Base().Multiply(s.privateKey)
 }
 
+// SetProofNonce sets the nonce used in the proof generation in the VOPRF and POPRF modes.
+func (s *Server) SetProofNonce(r []byte) {
+	s.nonceR = r
+}
+
 // Evaluate the input with the private key.
 func (s *Server) Evaluate(blindedElement, info []byte) (*Evaluation, error) {
 	return s.EvaluateBatch([][]byte{blindedElement}, info)
@@ -81,7 +86,9 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 		return nil, err
 	}
 
+	var random *group.Scalar
 	if s.mode == VOPRF || s.mode == POPRF {
+		random = s.randomScalar()
 		blinded = make([]*group.Element, len(blindedElements))
 	}
 
@@ -100,8 +107,6 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 	}
 
 	// generate proof
-	random := s.randomScalar()
-
 	if s.mode == VOPRF {
 		ev.proofC, ev.proofS = s.oprf.generateProof(random, s.privateKey, s.publicKey, blinded, ev.elements)
 	} else if s.mode == POPRF {

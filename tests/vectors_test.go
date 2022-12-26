@@ -6,7 +6,7 @@
 // LICENSE file in the root directory of this source tree or at
 // https://spdx.org/licenses/MIT.html
 
-package voprf
+package voprf_test
 
 import (
 	"bytes"
@@ -19,6 +19,8 @@ import (
 
 	group "github.com/bytemare/crypto"
 	"github.com/bytemare/hash"
+
+	"github.com/bytemare/voprf"
 )
 
 type test struct {
@@ -34,9 +36,8 @@ type test struct {
 	Batch             int
 }
 
-type testVectors []vector
-
 type testVector struct {
+	ID              voprf.Identifier `json:"proof,omitempty"`
 	EvaluationProof struct {
 		Proof  string `json:"proof,omitempty"`
 		Random string `json:"r,omitempty"`
@@ -69,7 +70,7 @@ func decodeBatch(nb int, in string) ([][]byte, error) {
 	return out, nil
 }
 
-func (t *test) Verify(suite Identifier) error {
+func (t *test) Verify(suite voprf.Identifier) error {
 	g := suite.Group()
 
 	for i, b := range t.Blind {
@@ -164,16 +165,18 @@ func (tv *testVector) Decode() (*test, error) {
 	}, nil
 }
 
+type vectors []vector
+
 type vector struct {
-	DST     string       `json:"groupDST"`
-	Hash    string       `json:"hash"`
-	KeyInfo string       `json:"keyInfo"`
-	SksSeed string       `json:"seed"`
-	PkSm    string       `json:"pkSm,omitempty"`
-	SkSm    string       `json:"skSm"`
-	SuiteID Identifier   `json:"identifier"`
-	Vectors []testVector `json:"vectors,omitempty"`
-	Mode    Mode         `json:"mode"`
+	DST         string           `json:"groupDST"`
+	Hash        string           `json:"hash"`
+	KeyInfo     string           `json:"keyInfo"`
+	SksSeed     string           `json:"seed"`
+	PkSm        string           `json:"pkSm,omitempty"`
+	SkSm        string           `json:"skSm"`
+	SuiteID     voprf.Identifier `json:"identifier"`
+	TestVectors []testVector     `json:"vectors,omitempty"`
+	Mode        voprf.Mode       `json:"mode"`
 }
 
 func hashToHash(h string) hash.Identifier {
@@ -203,7 +206,7 @@ func hashToHash(h string) hash.Identifier {
 
 func (v vector) checkParams(t *testing.T) {
 	// Check mode
-	if v.Mode != OPRF && v.Mode != VOPRF && v.Mode != POPRF {
+	if v.Mode != voprf.OPRF && v.Mode != voprf.VOPRF && v.Mode != voprf.POPRF {
 		t.Fatalf("invalid mode %v", v.Mode)
 	}
 
@@ -223,13 +226,13 @@ func (v vector) checkParams(t *testing.T) {
 	//}
 }
 
-func testBlind(t *testing.T, client *Client, input, blind, expected, info []byte) {
-	s := client.group.NewScalar()
+func testBlind(t *testing.T, id voprf.Identifier, client *voprf.Client, input, blind, expected, info []byte) {
+	s := id.Group().NewScalar()
 	if err := s.Decode(blind); err != nil {
-		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", client.oprf.id, err))
+		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", id, err))
 	}
 
-	client.blind = []*group.Scalar{s}
+	client.SetBlinds([]*group.Scalar{s})
 
 	blinded := client.Blind(input, info)
 
@@ -238,7 +241,7 @@ func testBlind(t *testing.T, client *Client, input, blind, expected, info []byte
 	}
 }
 
-func testBlindBatchWithBlinds(t *testing.T, client *Client, inputs, blinds, outputs [][]byte, info []byte) {
+func testBlindBatchWithBlinds(t *testing.T, client *voprf.Client, inputs, blinds, outputs [][]byte, info []byte) {
 	blinded, err := client.BlindBatchWithBlinds(blinds, inputs, info)
 	if err != nil {
 		t.Fatal(err)
@@ -251,19 +254,26 @@ func testBlindBatchWithBlinds(t *testing.T, client *Client, inputs, blinds, outp
 	}
 }
 
-func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *test) {
+func testOPRF(
+	t *testing.T,
+	id voprf.Identifier,
+	mode voprf.Mode,
+	client *voprf.Client,
+	server *voprf.Server,
+	test *test,
+) {
 	var err error
 
 	// OPRFClient Blinding
 	if test.Batch == 1 {
-		testBlind(t, client, test.Input[0], test.Blind[0], test.BlindedElement[0], test.Info)
+		testBlind(t, id, client, test.Input[0], test.Blind[0], test.BlindedElement[0], test.Info)
 	} else {
 		testBlindBatchWithBlinds(t, client, test.Input, test.Blind, test.BlindedElement, test.Info)
 	}
 
 	// OPRFServer evaluating
-	var ev *Evaluation
-	server.nonceR = test.NonceR
+	var ev *voprf.Evaluation
+	server.SetProofNonce(test.NonceR)
 	if test.Batch == 1 {
 		ev, err = server.Evaluate(test.BlindedElement[0], test.Info)
 		if err != nil {
@@ -287,7 +297,7 @@ func testOPRF(t *testing.T, mode Mode, client *Client, server *Server, test *tes
 	}
 
 	// Verify proofs
-	if mode == VOPRF || mode == POPRF {
+	if mode == voprf.VOPRF || mode == voprf.POPRF {
 		if !bytes.Equal(test.ProofC, ev.ProofC) {
 			t.Errorf(
 				"unexpected c proof\n\twant %v\n\tgot  %v",
@@ -351,7 +361,7 @@ func (v vector) test(t *testing.T) {
 	}
 
 	var serverPublicKey []byte
-	if mode == VOPRF || mode == POPRF {
+	if mode == voprf.VOPRF || mode == voprf.POPRF {
 		pksm, err := hex.DecodeString(v.PkSm)
 		if err != nil {
 			t.Fatalf("error decoding public key %v", err)
@@ -365,7 +375,7 @@ func (v vector) test(t *testing.T) {
 	}
 
 	// Test Multiplicative Mode
-	for i, tv := range v.Vectors {
+	for i, tv := range v.TestVectors {
 		t.Run(fmt.Sprintf("Vector %d", i), func(t *testing.T) {
 			test, err := tv.Decode()
 			if err != nil {
@@ -387,9 +397,7 @@ func (v vector) test(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			o := suites[suite].new(mode)
-
-			sks, _ := o.DeriveKeyPair(seed, keyInfo)
+			sks, _ := deriveKeyPair(seed, keyInfo, mode, suite)
 			// log.Printf("sks %v", hex.EncodeToString(serializeScalar(sks, scalarLength(o.id))))
 			if !bytes.Equal(sks.Encode(), privKey) {
 				t.Fatalf("DeriveKeyPair yields unexpected output\n\twant: %v\n\tgot : %v", privKey, sks.Encode())
@@ -408,7 +416,7 @@ func (v vector) test(t *testing.T) {
 				)
 			}
 
-			if string(expectedDST) != string(dst(hash2groupDSTPrefix, o.contextString)) {
+			if string(expectedDST) != string(dst(hash2groupDSTPrefix, contextString(mode, suite))) {
 				t.Fatal("GroupDST output is not valid.")
 			}
 
@@ -417,23 +425,23 @@ func (v vector) test(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if string(expectedDST) != string(dst(hash2groupDSTPrefix, o.contextString)) {
+			if string(expectedDST) != string(dst(hash2groupDSTPrefix, contextString(mode, suite))) {
 				t.Fatal("GroupDST output is not valid.")
 			}
 
 			// test protocol execution
-			testOPRF(t, mode, client, server, test)
+			testOPRF(t, v.SuiteID, mode, client, server, test)
 		})
 	}
 }
 
-func loadVOPRFVectors(filepath string) (testVectors, error) {
+func loadVOPRFVectors(filepath string) (vectors, error) {
 	contents, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	}
 
-	var v testVectors
+	var v vectors
 	errJSON := json.Unmarshal(contents, &v)
 	if errJSON != nil {
 		return nil, errJSON
@@ -443,7 +451,7 @@ func loadVOPRFVectors(filepath string) (testVectors, error) {
 }
 
 func TestVOPRFVectors(t *testing.T) {
-	vectorFile := "test/allVectors.json"
+	vectorFile := "allVectors.json"
 
 	v, err := loadVOPRFVectors(vectorFile)
 	if err != nil || v == nil {
