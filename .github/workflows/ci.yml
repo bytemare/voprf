@@ -86,5 +86,5 @@ jobs:
             -Dsonar.go.coverage.reportPaths=.github/coverage.out
             -Dsonar.sources=.
             -Dsonar.tests=examples_test.go,tests/
-            -Dsonar.test.exclusions=examples_test.go,tests/
+            -Dsonar.test.exclusions=tests/allVectors.json
             -Dsonar.coverage.exclusions=examples_test.go,tests/-Dsonar.verbose=true
