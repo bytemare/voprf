@@ -19,7 +19,7 @@ import (
 )
 
 func TestClient_State(t *testing.T) {
-	suite := voprf.RistrettoSha512
+	suite := voprf.Ristretto255Sha512
 	input := []byte("input")
 	kp := suite.KeyGen()              // only used in VOPRF and POPRF
 	info := []byte("additional data") // only used in POPRF

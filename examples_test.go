@@ -20,12 +20,12 @@ func exchangeWithServer(blinded []byte, verifiable bool) []byte {
 	privateKey, _ := hex.DecodeString("8132542d5ed08594e7522b5eac6bee38bab5868996c25a3fd2a7739be1856b04")
 
 	if verifiable {
-		server, err = voprf.RistrettoSha512.Server(voprf.VOPRF, privateKey)
+		server, err = voprf.Ristretto255Sha512.Server(voprf.VOPRF, privateKey)
 		if err != nil {
 			panic(err)
 		}
 	} else {
-		server, err = voprf.RistrettoSha512.Server(voprf.OPRF, privateKey)
+		server, err = voprf.Ristretto255Sha512.Server(voprf.OPRF, privateKey)
 		if err != nil {
 			panic(err)
 		}
@@ -45,7 +45,7 @@ func ExampleClient() {
 	input := []byte("input")
 
 	// Set up a new client. Not indicating a server public key indicates we don't use the verifiable mode.
-	client, err := voprf.RistrettoSha512.Client(voprf.OPRF, nil)
+	client, err := voprf.Ristretto255Sha512.Client(voprf.OPRF, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +71,7 @@ func ExampleClient() {
 }
 
 func Example_verifiableClient() {
-	ciphersuite := voprf.RistrettoSha512
+	ciphersuite := voprf.Ristretto255Sha512
 	input := []byte("input")
 	serverPubKey, _ := hex.DecodeString("066c39841db2ca3c2e83e251e71b619013674149692ca2ab41d1b33a1a4fff38")
 
@@ -107,7 +107,7 @@ func Example_baseServer() {
 	blinded, _ := hex.DecodeString("7eaf3d7cbe43d54637274342ce53578b2aba836f297f4f07997a6e1dced1c058")
 
 	// Set up a new server. A private key is automatically created if none is given.
-	server, err := voprf.RistrettoSha512.Server(voprf.OPRF, nil)
+	server, err := voprf.Ristretto255Sha512.Server(voprf.OPRF, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -130,7 +130,7 @@ func Example_verifiableServer() {
 	blinded, _ := hex.DecodeString("7eaf3d7cbe43d54637274342ce53578b2aba836f297f4f07997a6e1dced1c058")
 
 	// Set up a new server.
-	server, err := voprf.RistrettoSha512.Server(voprf.VOPRF, privateKey)
+	server, err := voprf.Ristretto255Sha512.Server(voprf.VOPRF, privateKey)
 	if err != nil {
 		panic(err)
 	}
