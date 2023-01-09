@@ -33,8 +33,8 @@ const (
 type Identifier string
 
 const (
-	// RistrettoSha512 is the OPRF cipher suite of the Ristretto255 group and SHA-512.
-	RistrettoSha512 Identifier = "ristretto255-SHA512"
+	// Ristretto255Sha512 is the OPRF cipher suite of the Ristretto255 group and SHA-512.
+	Ristretto255Sha512 Identifier = "ristretto255-SHA512"
 
 	// Decaf448Sha512 is the OPRF cipher suite of the Decaf448 group and SHA-512.
 	// decaf448Sha512 Identifier = "decaf448-SHAKE256".
@@ -68,28 +68,32 @@ var (
 	hashes = make(map[Identifier]hash.Hashing, nbIDs)
 )
 
-func (c Identifier) new(mode Mode) *oprf {
+func (i Identifier) new(mode Mode) *oprf {
 	return &oprf{
-		hash:          hashes[c].Get(),
-		contextString: contextString(mode, c),
-		id:            c,
+		hash:          hashes[i].Get(),
+		contextString: contextString(mode, i),
+		id:            i,
 		mode:          mode,
-		group:         groups[c],
+		group:         groups[i],
 	}
 }
 
 // Available returns whether the Identifier is registered and available for usage.
-func (c Identifier) Available() bool {
+func (i Identifier) Available() bool {
 	// Check for invalid identifiers
-	switch c {
-	case RistrettoSha512, P256Sha256, P384Sha384, P521Sha512:
+	switch i {
+	case Ristretto255Sha512, P256Sha256, P384Sha384, P521Sha512:
 		break
 	default:
 		return false
 	}
 
-	// Check for unregistered groups
-	if _, ok := groups[c]; !ok {
+	// Check for unregistered groups and hashes
+	if _, ok := groups[i]; !ok {
+		return false
+	}
+
+	if _, ok := hashes[i]; !ok {
 		return false
 	}
 
@@ -97,13 +101,13 @@ func (c Identifier) Available() bool {
 }
 
 // Group returns the group identifier used in the cipher suite.
-func (c Identifier) Group() group.Group {
-	return groups[c]
+func (i Identifier) Group() group.Group {
+	return groups[i]
 }
 
 // Hash returns the hash function identifier used in the cipher suite.
-func (c Identifier) Hash() hash.Hashing {
-	return hashes[c]
+func (i Identifier) Hash() hash.Hashing {
+	return hashes[i]
 }
 
 // FromGroup returns a (V)OPRF Identifier given a Group Identifier.
@@ -118,24 +122,24 @@ func FromGroup(g group.Group) (Identifier, error) {
 }
 
 // KeyGen returns a fresh KeyPair for the given cipher suite.
-func (c Identifier) KeyGen() *KeyPair {
-	sk := c.Group().NewScalar().Random()
-	pk := c.Group().Base().Multiply(sk)
+func (i Identifier) KeyGen() *KeyPair {
+	sk := i.Group().NewScalar().Random()
+	pk := i.Group().Base().Multiply(sk)
 
 	return &KeyPair{
-		ID:        c,
+		ID:        i,
 		PublicKey: pk.Encode(),
 		SecretKey: sk.Encode(),
 	}
 }
 
 // Client returns a (P|V)OPRF client. For the OPRF mode, serverPublicKey should be nil, and non-nil otherwise.
-func (c Identifier) Client(mode Mode, serverPublicKey []byte) (*Client, error) {
+func (i Identifier) Client(mode Mode, serverPublicKey []byte) (*Client, error) {
 	if mode != OPRF && mode != VOPRF && mode != POPRF {
 		return nil, errParamInvalidMode
 	}
 
-	client := c.client(mode)
+	client := i.client(mode)
 
 	if mode == VOPRF || mode == POPRF {
 		if serverPublicKey == nil {
@@ -152,12 +156,12 @@ func (c Identifier) Client(mode Mode, serverPublicKey []byte) (*Client, error) {
 
 // Server returns a (P|V)OPRF server instantiated with the given encoded private key.
 // If privateKey is nil, a new private/public key pair is created.
-func (c Identifier) Server(mode Mode, privateKey []byte) (*Server, error) {
+func (i Identifier) Server(mode Mode, privateKey []byte) (*Server, error) {
 	if mode != OPRF && mode != VOPRF && mode != POPRF {
 		return nil, errParamInvalidMode
 	}
 
-	return c.server(mode, privateKey)
+	return i.server(mode, privateKey)
 }
 
 type oprf struct {
@@ -209,11 +213,11 @@ func (o *oprf) HashToScalar(data []byte) *group.Scalar {
 	return o.group.HashToScalar(data, dst(hash2scalarDSTPrefix, o.contextString))
 }
 
-func (c Identifier) client(mode Mode) *Client {
+func (i Identifier) client(mode Mode) *Client {
 	return &Client{
 		tweakedKey:      nil,
 		serverPublicKey: nil,
-		oprf:            c.new(mode),
+		oprf:            i.new(mode),
 		input:           nil,
 		blind:           nil,
 		blindedElement:  nil,
@@ -235,11 +239,11 @@ func (c *Client) setServerPublicKey(serverPublicKey []byte) error {
 	return nil
 }
 
-func (c Identifier) server(mode Mode, privateKey []byte) (*Server, error) {
+func (i Identifier) server(mode Mode, privateKey []byte) (*Server, error) {
 	s := &Server{
 		privateKey: nil,
 		publicKey:  nil,
-		oprf:       c.new(mode),
+		oprf:       i.new(mode),
 		nonceR:     nil,
 	}
 
@@ -284,21 +288,21 @@ func (o *oprf) hashTranscript(input, info, unblinded []byte) []byte {
 }
 
 // String implements the Stringer() interface for the Identifier.
-func (c Identifier) String() string {
-	return string(c)
+func (i Identifier) String() string {
+	return string(i)
 }
 
-func (c Identifier) register(g group.Group, h hash.Hashing) {
+func (i Identifier) register(g group.Group, h hash.Hashing) {
 	if g.Available() && h.Available() {
-		groups[c] = g
-		hashes[c] = h
+		groups[i] = g
+		hashes[i] = h
 	} else {
 		panic(fmt.Sprintf("OPRF dependencies not available - Group: %v, Hash: %v", g.Available(), h.Available()))
 	}
 }
 
 func init() {
-	RistrettoSha512.register(group.Ristretto255Sha512, hash.SHA512)
+	Ristretto255Sha512.register(group.Ristretto255Sha512, hash.SHA512)
 	// Decaf448Sha512.register(group.Curve448Sha512, hash.SHA512).
 	P256Sha256.register(group.P256Sha256, hash.SHA256)
 	P384Sha384.register(group.P384Sha384, hash.SHA384)
