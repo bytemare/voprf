@@ -1,11 +1,13 @@
 .PHONY: update
 update:
-	@cd ../
 	@echo "Updating dependencies..."
-	@go get -u
+	@cd ../ && go get -u
 	@go mod tidy
 	@echo "Updating Github Actions pins..."
 	@$(foreach file, $(wildcard workflows/*.yml), pin-github-action $(file);)
+
+.PHONY: update-linters
+update-linters:
 	@echo "Updating linters..."
 	@go install mvdan.cc/gofumpt@latest
 	@go install github.com/daixiang0/gci@latest
@@ -36,14 +38,14 @@ lint: fmt license
 .PHONY: test
 test:
 	@echo "Running all tests ..."
-	@go test -v -vet=all ../...
+	@go test -v -vet=all ../tests
 
 .PHONY: vectors
 vectors:
 	@echo "Testing vectors ..."
-	@go test -v ../tests/...
+	@go test -v ../tests/vectors_test.go
 
 .PHONY: cover
 cover:
 	@echo "Testing with coverage ..."
-	@go test -v -race -covermode=atomic -coverpkg=../... -coverprofile=./coverage.out ../...
+	@go test -v -race -covermode=atomic -coverpkg=../... -coverprofile=./coverage.out ../tests
