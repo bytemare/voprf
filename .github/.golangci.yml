@@ -146,15 +146,13 @@ linters-settings:
   golint:
     min-confidence: 0
   gomnd:
-    settings:
-      mnd:
-        checks:
-          - argument
-          - case
-          - condition
-          - operation
-          - return
-          - assign
+    checks:
+      - argument
+      - case
+      - condition
+      - operation
+      - return
+      - assign
     ignored-functions:
       - 'Import'
       - 'Deserialize'
@@ -200,14 +198,6 @@ linters-settings:
       - unsafeptr
       - unusedresult
       - unusedwrite
-  depguard:
-    list-type: blacklist
-    packages:
-      # logging is allowed only by logutils.Log, logrus
-      # is allowed to use only in logutils package
-      - github.com/sirupsen/logrus
-    packages-with-error-message:
-      - github.com/sirupsen/logrus: "logging is allowed only by logutils.Log"
   lll:
     line-length: 120
     # tab width ('\t') in spaces. Default to 1.
@@ -256,7 +246,7 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
 
-  # Independently from option `exclude` we use default exclude patterns,
+  # Independently of option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all
   # excluded by default patterns execute `golangci-lint run --help`.
   # Default value for this option is true.
@@ -265,5 +255,5 @@ issues:
 run:
   tests: false
 
-#output:
-#  format: github-actions
+output:
+  format: github-actions
