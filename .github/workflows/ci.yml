@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [ '1.19', '1.18' ]
+        go: [ '1.20', '1.19' ]
     steps:
       - name: Checkout repo
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # pin@master
@@ -81,4 +81,11 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.organization=bytemare-github -Dsonar.projectKey=bytemare_voprf -Dsonar.sources=. -Dsonar.test.exclusions=examples_test.go,tests/** -Dsonar.tests=tests/ -Dsonar.go.coverage.reportPaths=.github/coverage.out -Dsonar.coverage.exclusions=examples_test.go,tests/** -Dsonar.verbose=true
+            -Dsonar.organization=bytemare-github
+            -Dsonar.projectKey=bytemare_voprf
+            -Dsonar.go.coverage.reportPaths=.github/coverage.out
+            -Dsonar.sources=.
+            -Dsonar.test.exclusions=examples_test.go,tests/**
+            -Dsonar.coverage.exclusions=examples_test.go,tests/**
+            -Dsonar.tests=tests/
+            -Dsonar.verbose=true
