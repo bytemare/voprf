@@ -23,7 +23,7 @@ jobs:
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@5c56cd6c9dc07901af25baab6f2b0d9f3b7c3018 # pin@master
+        uses: golangci/golangci-lint-action@2e6adf08a9d304f4ac29fc9cb609dcd6a6e05c40 # pin@master
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
@@ -69,7 +69,7 @@ jobs:
 
       # Codecov
       - name: Codecov
-        uses: codecov/codecov-action@29386c70ef20e286228c72b668a06fd0e8399192 # pin@master
+        uses: codecov/codecov-action@bbeaa140357942e4e8d8e15f1cd2f4e612f64c59 # pin@master
         with:
           file: .github/coverage.out
 
