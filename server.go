@@ -58,7 +58,7 @@ func setRandom(r *group.Scalar, random []byte) error {
 		r.Random()
 	} else {
 		if err := r.Decode(random); err != nil {
-			return err
+			return fmt.Errorf("decoding input random scalar: %w", err)
 		}
 	}
 
@@ -82,11 +82,12 @@ func (s *Server) innerEvaluateBatch(blindedElements [][]byte, random, info []byt
 	}
 
 	var r *group.Scalar
+
 	if s.mode == VOPRF || s.mode == POPRF {
 		blinded = make([]*group.Element, len(blindedElements))
 
 		r = s.group.NewScalar()
-		if err = setRandom(r, random); err != nil {
+		if err := setRandom(r, random); err != nil {
 			return nil, err
 		}
 	}
