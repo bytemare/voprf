@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+// Copyright (C) 2024 Daniel Bourdrez. All Rights Reserved.
 //
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree or at
@@ -15,7 +15,7 @@ import (
 
 // KeyPair assembles a VOPRF key pair. The SecretKey can be used as the evaluation key for the group identified by ID.
 type KeyPair struct {
-	ID        Identifier
+	ID        Ciphersuite
 	PublicKey []byte
 	SecretKey []byte
 }

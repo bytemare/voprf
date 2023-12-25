@@ -21,6 +21,8 @@ jobs:
 
     strategy:
       fail-fast: false
+      matrix:
+        go: [ '1.21', '1.20' ]
 
     steps:
       - name: Checkout repository
@@ -28,12 +30,12 @@ jobs:
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@231aa2c8a89117b126725a0e11897209b7118144 # pin@master
+        uses: github/codeql-action/init@6f5223db54afb6bccb7b88162896588caa1f611b # pin@master
         with:
           languages: go
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@231aa2c8a89117b126725a0e11897209b7118144 # pin@master
+        uses: github/codeql-action/autobuild@6f5223db54afb6bccb7b88162896588caa1f611b # pin@master
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@231aa2c8a89117b126725a0e11897209b7118144 # pin@master
+        uses: github/codeql-action/analyze@6f5223db54afb6bccb7b88162896588caa1f611b # pin@master

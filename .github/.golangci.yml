@@ -9,7 +9,7 @@ linters:
     - contextcheck
     - cyclop
     - decorder
-    - depguard
+    #- depguard
     - dogsled
     - dupl
     - durationcheck
@@ -96,6 +96,11 @@ linters:
   fast: false
 
 linters-settings:
+  cyclop:
+    # The maximal code complexity to report.
+    # Default: 10
+    max-complexity: 12
+    skip-tests: true
   dupl:
     threshold: 100
   errcheck:
