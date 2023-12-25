@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+// Copyright (C) 2024 Daniel Bourdrez. All Rights Reserved.
 //
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree or at
@@ -12,7 +12,7 @@ import "errors"
 
 var (
 	errParamInvalidMode   = errors.New("invalid OPRF mode")
-	errParamInvalidID     = errors.New("invalid Identifier")
+	errParamInvalidID     = errors.New("invalid Ciphersuite")
 	errParamFinalizeLen   = errors.New("invalid number of elements in evaluation")
 	errParamInputEqualLen = errors.New("input lengths are not equal")
 	errParamNoPubKey      = errors.New("missing public key")

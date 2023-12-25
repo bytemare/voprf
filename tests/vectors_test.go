@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+// Copyright (C) 2024 Daniel Bourdrez. All Rights Reserved.
 //
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree or at
@@ -37,7 +37,7 @@ type test struct {
 }
 
 type testVector struct {
-	ID              voprf.Identifier `json:"proof,omitempty"`
+	ID              voprf.Ciphersuite `json:"proof,omitempty"`
 	EvaluationProof struct {
 		Proof  string `json:"proof,omitempty"`
 		Random string `json:"r,omitempty"`
@@ -70,7 +70,7 @@ func decodeBatch(nb int, in string) ([][]byte, error) {
 	return out, nil
 }
 
-func (t *test) Verify(suite voprf.Identifier) error {
+func (t *test) Verify(suite voprf.Ciphersuite) error {
 	g := suite.Group()
 
 	for i, b := range t.Blind {
@@ -168,15 +168,15 @@ func (tv *testVector) Decode() (*test, error) {
 type vectors []vector
 
 type vector struct {
-	DST         string           `json:"groupDST"`
-	Hash        string           `json:"hash"`
-	KeyInfo     string           `json:"keyInfo"`
-	SksSeed     string           `json:"seed"`
-	PkSm        string           `json:"pkSm,omitempty"`
-	SkSm        string           `json:"skSm"`
-	SuiteID     voprf.Identifier `json:"identifier"`
-	TestVectors []testVector     `json:"vectors,omitempty"`
-	Mode        voprf.Mode       `json:"mode"`
+	DST         string            `json:"groupDST"`
+	Hash        string            `json:"hash"`
+	KeyInfo     string            `json:"keyInfo"`
+	SksSeed     string            `json:"seed"`
+	PkSm        string            `json:"pkSm,omitempty"`
+	SkSm        string            `json:"skSm"`
+	SuiteID     voprf.Ciphersuite `json:"identifier"`
+	TestVectors []testVector      `json:"vectors,omitempty"`
+	Mode        voprf.Mode        `json:"mode"`
 }
 
 func hashToHash(h string) hash.Identifier {
@@ -226,7 +226,7 @@ func (v vector) checkParams(t *testing.T) {
 	//}
 }
 
-func testBlind(t *testing.T, id voprf.Identifier, client *voprf.Client, input, blind, expected, info []byte) {
+func testBlind(t *testing.T, id voprf.Ciphersuite, client *voprf.Client, input, blind, expected, info []byte) {
 	s := id.Group().NewScalar()
 	if err := s.Decode(blind); err != nil {
 		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", id, err))
@@ -256,7 +256,7 @@ func testBlindBatchWithBlinds(t *testing.T, client *voprf.Client, inputs, blinds
 
 func testOPRF(
 	t *testing.T,
-	id voprf.Identifier,
+	id voprf.Ciphersuite,
 	mode voprf.Mode,
 	client *voprf.Client,
 	server *voprf.Server,

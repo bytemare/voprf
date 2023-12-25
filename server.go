@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright (C) 2021 Daniel Bourdrez. All Rights Reserved.
+// Copyright (C) 2024 Daniel Bourdrez. All Rights Reserved.
 //
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree or at
@@ -180,7 +180,7 @@ func (s *Server) PublicKey() []byte {
 	return s.publicKey.Encode()
 }
 
-// Identifier returns the cipher suite used in s' instance.
-func (s *Server) Identifier() Identifier {
+// Ciphersuite returns the cipher suite used in the server's instance.
+func (s *Server) Ciphersuite() Ciphersuite {
 	return s.oprf.id
 }
