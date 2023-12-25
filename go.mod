@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/bytemare/crypto v0.5.2
-	github.com/bytemare/hash v0.1.6
+	github.com/bytemare/hash v0.1.7
 )
 
 require (
