@@ -9,11 +9,10 @@
 package voprf_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
 
 	"github.com/bytemare/voprf"
 )
@@ -52,9 +51,55 @@ func TestClient_State(t *testing.T) {
 
 			export2 := resumed.Export()
 
-			if !cmp.Equal(export, export2) {
+			if !areStatesEqual(export, export2) {
 				t.Fatal("states are not equal")
 			}
 		})
 	}
+}
+
+func areArraysOfArraysEqual(a, b [][]byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i, c := range a {
+		if bytes.Compare(c, b[i]) != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func areStatesEqual(x1, x2 *voprf.State) bool {
+	if x1.Mode != x2.Mode {
+		return false
+	}
+
+	if x1.Identifier != x2.Identifier {
+		return false
+	}
+
+	if bytes.Compare(x1.TweakedKey, x1.TweakedKey) != 0 {
+		return false
+	}
+
+	if bytes.Compare(x1.ServerPublicKey, x1.ServerPublicKey) != 0 {
+		return false
+	}
+
+	if !areArraysOfArraysEqual(x1.Input, x2.Input) {
+		return false
+	}
+
+	if !areArraysOfArraysEqual(x1.Blind, x2.Blind) {
+		return false
+	}
+
+	if !areArraysOfArraysEqual(x1.Blinded, x2.Blinded) {
+		return false
+	}
+
+	return true
 }

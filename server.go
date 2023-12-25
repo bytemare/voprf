@@ -19,7 +19,6 @@ type Server struct {
 	privateKey *group.Scalar
 	publicKey  *group.Element
 	*oprf
-	nonceR []byte
 }
 
 // KeyGen generates and sets a new private/public key pair.
@@ -28,14 +27,14 @@ func (s *Server) KeyGen() {
 	s.publicKey = s.group.Base().Multiply(s.privateKey)
 }
 
-// SetProofNonce sets the nonce used in the proof generation in the VOPRF and POPRF modes.
-func (s *Server) SetProofNonce(r []byte) {
-	s.nonceR = r
-}
-
 // Evaluate the input with the private key.
 func (s *Server) Evaluate(blindedElement, info []byte) (*Evaluation, error) {
-	return s.EvaluateBatch([][]byte{blindedElement}, info)
+	return s.innerEvaluateBatch([][]byte{blindedElement}, nil, info)
+}
+
+// EvaluateWithRandom does the same as Evaluate and allows to provide a random input for proof generation.
+func (s *Server) EvaluateWithRandom(blindedElement, random, info []byte) (*Evaluation, error) {
+	return s.innerEvaluateBatch([][]byte{blindedElement}, random, info)
 }
 
 func (s *Server) getPrivateKeys(info []byte) (scalar, t *group.Scalar, err error) {
@@ -54,23 +53,19 @@ func (s *Server) getPrivateKeys(info []byte) (scalar, t *group.Scalar, err error
 	return scalar, t, nil
 }
 
-func (s *Server) randomScalar() *group.Scalar {
-	r := s.group.NewScalar()
-
-	if s.nonceR == nil {
+func setRandom(r *group.Scalar, random []byte) error {
+	if len(random) == 0 {
 		r.Random()
 	} else {
-		if err := r.Decode(s.nonceR); err != nil {
-			panic(err)
+		if err := r.Decode(random); err != nil {
+			return err
 		}
 	}
 
-	return r
+	return nil
 }
 
-// EvaluateBatch evaluates the input batch of blindedElements and returns a pointer to the Evaluation. If the server
-// was set to be un VOPRF mode, the proof will be included in the Evaluation.
-func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluation, error) {
+func (s *Server) innerEvaluateBatch(blindedElements [][]byte, random, info []byte) (*Evaluation, error) {
 	ev := &evaluation{
 		proofC:   nil,
 		proofS:   nil,
@@ -86,10 +81,14 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 		return nil, err
 	}
 
-	var random *group.Scalar
+	var r *group.Scalar
 	if s.mode == VOPRF || s.mode == POPRF {
-		random = s.randomScalar()
 		blinded = make([]*group.Element, len(blindedElements))
+
+		r = s.group.NewScalar()
+		if err = setRandom(r, random); err != nil {
+			return nil, err
+		}
 	}
 
 	// decode and evaluate element(s)
@@ -108,13 +107,24 @@ func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluati
 
 	// generate proof
 	if s.mode == VOPRF {
-		ev.proofC, ev.proofS = s.oprf.generateProof(random, s.privateKey, s.publicKey, blinded, ev.elements)
+		ev.proofC, ev.proofS = s.oprf.generateProof(r, s.privateKey, s.publicKey, blinded, ev.elements)
 	} else if s.mode == POPRF {
 		tweakedKey := s.group.Base().Multiply(t)
-		ev.proofC, ev.proofS = s.oprf.generateProof(random, t, tweakedKey, ev.elements, blinded)
+		ev.proofC, ev.proofS = s.oprf.generateProof(r, t, tweakedKey, ev.elements, blinded)
 	}
 
 	return ev.serialize(), nil
+}
+
+// EvaluateBatch evaluates the input batch of blindedElements and returns a pointer to the Evaluation. If the server
+// was set to be un VOPRF mode, the proof will be included in the Evaluation.
+func (s *Server) EvaluateBatch(blindedElements [][]byte, info []byte) (*Evaluation, error) {
+	return s.innerEvaluateBatch(blindedElements, nil, info)
+}
+
+// EvaluateBatchWithRandom does the same as EvaluateBatch and allows to provide a random input for proof generation.
+func (s *Server) EvaluateBatchWithRandom(blindedElements [][]byte, random, info []byte) (*Evaluation, error) {
+	return s.innerEvaluateBatch(blindedElements, random, info)
 }
 
 // FullEvaluate reproduces the full PRF but without the blinding operations, using the client's input.

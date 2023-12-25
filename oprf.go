@@ -244,7 +244,6 @@ func (i Identifier) server(mode Mode, privateKey []byte) (*Server, error) {
 		privateKey: nil,
 		publicKey:  nil,
 		oprf:       i.new(mode),
-		nonceR:     nil,
 	}
 
 	if privateKey == nil {

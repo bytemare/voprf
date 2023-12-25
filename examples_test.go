@@ -41,7 +41,7 @@ func exchangeWithServer(blinded []byte, verifiable bool) []byte {
 	return ev
 }
 
-func ExampleClient() {
+func Example_client() {
 	input := []byte("input")
 
 	// Set up a new client. Not indicating a server public key indicates we don't use the verifiable mode.
@@ -102,7 +102,7 @@ func Example_verifiableClient() {
 	// Output:
 }
 
-func Example_baseServer() {
+func Example_server() {
 	// We suppose the client sends this blinded element.
 	blinded, _ := hex.DecodeString("7eaf3d7cbe43d54637274342ce53578b2aba836f297f4f07997a6e1dced1c058")
 

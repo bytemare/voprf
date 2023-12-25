@@ -273,9 +273,8 @@ func testOPRF(
 
 	// OPRFServer evaluating
 	var ev *voprf.Evaluation
-	server.SetProofNonce(test.NonceR)
 	if test.Batch == 1 {
-		ev, err = server.Evaluate(test.BlindedElement[0], test.Info)
+		ev, err = server.EvaluateWithRandom(test.BlindedElement[0], test.NonceR, test.Info)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -284,7 +283,7 @@ func testOPRF(
 			t.Fatal("unexpected evaluation element")
 		}
 	} else {
-		ev, err = server.EvaluateBatch(test.BlindedElement, test.Info)
+		ev, err = server.EvaluateBatchWithRandom(test.BlindedElement, test.NonceR, test.Info)
 		if err != nil {
 			t.Fatal(err)
 		}
