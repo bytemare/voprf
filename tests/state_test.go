@@ -17,6 +17,49 @@ import (
 	"github.com/bytemare/voprf"
 )
 
+func TestEvaluationSerde(t *testing.T) {
+	suite := voprf.Ristretto255Sha512
+	input := []byte("input")
+	mode := voprf.OPRF
+
+	server, err := suite.Server(mode, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	spk := server.PublicKey()
+
+	client, err := suite.Client(mode, spk)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blinded := client.Blind(input, nil)
+	evaluation, err := server.Evaluate(blinded, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	ser := evaluation.Serialize()
+	deser := &voprf.Evaluation{}
+
+	if err := deser.Deserialize(ser); err != nil {
+		t.Fatal(err)
+	}
+
+	if !areArraysOfArraysEqual(evaluation.Elements, deser.Elements) {
+		t.Fatal("evaluation serde failed")
+	}
+
+	if bytes.Compare(evaluation.ProofC, evaluation.ProofC) != 0 {
+		t.Fatal("evaluation serde failed")
+	}
+
+	if bytes.Compare(evaluation.ProofS, evaluation.ProofS) != 0 {
+		t.Fatal("evaluation serde failed")
+	}
+}
+
 func TestClient_State(t *testing.T) {
 	suite := voprf.Ristretto255Sha512
 	input := []byte("input")
