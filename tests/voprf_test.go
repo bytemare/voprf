@@ -10,10 +10,13 @@ package voprf_test
 
 import (
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/bytemare/voprf"
 )
+
+var errExpectedEquality = errors.New("expected equality")
 
 func makeClientAndServer(t *testing.T, mode voprf.Mode, ciphersuite voprf.Ciphersuite) (*voprf.Client, *voprf.Server) {
 	server, err := ciphersuite.Server(mode, nil)
@@ -115,7 +118,7 @@ func TestAvailability(t *testing.T) {
 func TestCiphersuiteGroup(t *testing.T) {
 	testAll(t, func(c *configuration) {
 		if c.ciphersuite.Group() != c.group {
-			t.Fatal("expected equality")
+			t.Fatal(errExpectedEquality)
 		}
 
 		ciphersuite, err := voprf.FromGroup(c.group)
@@ -124,7 +127,7 @@ func TestCiphersuiteGroup(t *testing.T) {
 		}
 
 		if ciphersuite != c.ciphersuite {
-			t.Fatal("expected equality")
+			t.Fatal(errExpectedEquality)
 		}
 	})
 }
@@ -132,7 +135,7 @@ func TestCiphersuiteGroup(t *testing.T) {
 func TestCiphersuiteHashes(t *testing.T) {
 	testAll(t, func(c *configuration) {
 		if c.hash != c.ciphersuite.Hash() {
-			t.Fatal("expected equality")
+			t.Fatal(errExpectedEquality)
 		}
 	})
 }
@@ -158,7 +161,7 @@ func TestServerKeys(t *testing.T) {
 
 		pk := c.ciphersuite.Group().Base().Multiply(private)
 		if pk.Equal(public) != 1 {
-			t.Fatal("expected equality")
+			t.Fatal(errExpectedEquality)
 		}
 	})
 }
@@ -184,6 +187,6 @@ func TestDeriveKeyPair(t *testing.T) {
 	keyPair := ciphersuite.DeriveKeyPair(voprf.OPRF, random, info)
 
 	if keyPair.SecretKey.Equal(refSk) != 1 || keyPair.PublicKey.Equal(refPk) != 1 {
-		t.Fatal("expected equality")
+		t.Fatal(errExpectedEquality)
 	}
 }
