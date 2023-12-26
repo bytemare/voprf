@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-// SPDX-License-Identifier: MIT
 //
 // Copyright (C) 2024 Daniel Bourdrez. All Rights Reserved.
 //
@@ -105,6 +104,39 @@ func TestBatching(t *testing.T) {
 	})
 }
 
+func TestAvailability(t *testing.T) {
+	testAll(t, func(c *configuration) {
+		if !c.ciphersuite.Available() {
+			t.Fatal("expected availability")
+		}
+	})
+}
+
+func TestCiphersuiteGroup(t *testing.T) {
+	testAll(t, func(c *configuration) {
+		if c.ciphersuite.Group() != c.group {
+			t.Fatal("expected equality")
+		}
+
+		ciphersuite, err := voprf.FromGroup(c.group)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if ciphersuite != c.ciphersuite {
+			t.Fatal("expected equality")
+		}
+	})
+}
+
+func TestCiphersuiteHashes(t *testing.T) {
+	testAll(t, func(c *configuration) {
+		if c.hash != c.ciphersuite.Hash() {
+			t.Fatal("expected equality")
+		}
+	})
+}
+
 func TestServerKeys(t *testing.T) {
 	mode := voprf.OPRF
 
@@ -149,9 +181,9 @@ func TestDeriveKeyPair(t *testing.T) {
 	refPk := ciphersuite.Group().NewElement()
 	_ = refPk.Decode(encodedReferencePublicKeyR255)
 
-	sk, pk := ciphersuite.DeriveKeyPair(voprf.OPRF, random, info)
+	keyPair := ciphersuite.DeriveKeyPair(voprf.OPRF, random, info)
 
-	if sk.Equal(refSk) != 1 || pk.Equal(refPk) != 1 {
+	if keyPair.SecretKey.Equal(refSk) != 1 || keyPair.PublicKey.Equal(refPk) != 1 {
 		t.Fatal("expected equality")
 	}
 }

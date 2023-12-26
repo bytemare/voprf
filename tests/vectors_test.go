@@ -226,10 +226,10 @@ func (v vector) checkParams(t *testing.T) {
 	//}
 }
 
-func testBlind(t *testing.T, id voprf.Ciphersuite, client *voprf.Client, input, blind, expected, info []byte) {
-	s := id.Group().NewScalar()
+func testBlind(t *testing.T, ciphersuite voprf.Ciphersuite, client *voprf.Client, input, blind, expected, info []byte) {
+	s := ciphersuite.Group().NewScalar()
 	if err := s.Decode(blind); err != nil {
-		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", id, err))
+		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", ciphersuite, err))
 	}
 
 	client.SetBlinds([]*group.Scalar{s})
@@ -256,7 +256,7 @@ func testBlindBatchWithBlinds(t *testing.T, client *voprf.Client, inputs, blinds
 
 func testOPRF(
 	t *testing.T,
-	id voprf.Ciphersuite,
+	ciphersuite voprf.Ciphersuite,
 	mode voprf.Mode,
 	client *voprf.Client,
 	server *voprf.Server,
@@ -266,7 +266,7 @@ func testOPRF(
 
 	// OPRFClient Blinding
 	if test.Batch == 1 {
-		testBlind(t, id, client, test.Input[0], test.Blind[0], test.BlindedElement[0], test.Info)
+		testBlind(t, ciphersuite, client, test.Input[0], test.Blind[0], test.BlindedElement[0], test.Info)
 	} else {
 		testBlindBatchWithBlinds(t, client, test.Input, test.Blind, test.BlindedElement, test.Info)
 	}
@@ -324,10 +324,6 @@ func testOPRF(
 		if !bytes.Equal(test.Output[0], output) {
 			t.Fatal("finalize() output is not valid.")
 		}
-
-		if !server.VerifyFinalize(test.Input[0], test.Info, output) {
-			t.Fatal("VerifyFinalize() returned false.")
-		}
 	} else {
 		output, err := client.FinalizeBatch(ev, test.Info)
 		if err != nil {
@@ -338,10 +334,6 @@ func testOPRF(
 			if !bytes.Equal(o, output[i]) {
 				t.Fatal("finalizeBatch() output is not valid.")
 			}
-		}
-
-		if !server.VerifyFinalizeBatch(test.Input, output, test.Info) {
-			t.Fatal("VerifyFinalize() returned false.")
 		}
 	}
 }

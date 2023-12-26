@@ -68,7 +68,7 @@ func TestClient_State(t *testing.T) {
 
 	for _, mode := range []voprf.Mode{voprf.OPRF, voprf.VOPRF, voprf.POPRF} {
 		t.Run(fmt.Sprintf("State test for mode %v", mode), func(t *testing.T) {
-			client, err := suite.Client(mode, kp.PublicKey)
+			client, err := suite.Client(mode, kp.PublicKey.Encode())
 			if err != nil {
 				t.Fatal(err)
 			}

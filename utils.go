@@ -11,13 +11,16 @@ package voprf
 import (
 	"crypto/subtle"
 	"encoding/binary"
+
+	group "github.com/bytemare/crypto"
 )
 
-// KeyPair assembles a VOPRF key pair. The SecretKey can be used as the evaluation key for the group identified by ID.
+// KeyPair assembles a VOPRF key pair. The SecretKey can be used as the evaluation key for
+// the group identified by Ciphersuite.
 type KeyPair struct {
-	ID        Ciphersuite
-	PublicKey []byte
-	SecretKey []byte
+	PublicKey   *group.Element
+	SecretKey   *group.Scalar
+	Ciphersuite Ciphersuite
 }
 
 func i2osp2(value int) []byte {
