@@ -2,7 +2,6 @@
 
 ## Supported Versions
 
-The VOPRF protocol is still in the process of specification. Therefore, this implementation evolves with the draft.
 Only the latest version will be benefit from security fixes. Maintainers of projects using this implementation of VOPRF are invited to update their dependency.
 
 ## Reporting a Vulnerability

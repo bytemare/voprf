@@ -28,7 +28,7 @@ type State struct {
 // Export extracts the client's internal values that can be imported in another client for session resumption.
 func (c *Client) Export() *State {
 	s := &State{
-		Identifier:      c.id,
+		Identifier:      c.ciphersuite,
 		TweakedKey:      nil,
 		ServerPublicKey: nil,
 		Input:           nil,

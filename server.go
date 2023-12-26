@@ -128,48 +128,6 @@ func (s *Server) EvaluateBatchWithRandom(blindedElements [][]byte, random, info 
 	return s.innerEvaluateBatch(blindedElements, random, info)
 }
 
-// FullEvaluate reproduces the full PRF but without the blinding operations, using the client's input.
-// This should output the same digest as the client's Finalize() function.
-func (s *Server) FullEvaluate(input, info []byte) ([]byte, error) {
-	p := s.HashToGroup(input)
-
-	scalar, _, err := s.getPrivateKeys(info)
-	if err != nil {
-		return nil, err
-	}
-
-	t := p.Multiply(scalar)
-
-	if s.oprf.mode == OPRF || s.oprf.mode == VOPRF {
-		info = nil
-	}
-
-	return s.hashTranscript(input, info, t.Encode()), nil
-}
-
-// VerifyFinalize takes the client input (the un-blinded element) and the client's finalize() output,
-// and returns whether it can match the client's output.
-func (s *Server) VerifyFinalize(input, info, output []byte) bool {
-	digest, err := s.FullEvaluate(input, info)
-	if err != nil {
-		return false
-	}
-
-	return ctEqual(digest, output)
-}
-
-// VerifyFinalizeBatch takes the batch of client input (the un-blinded elements) and the client's finalize() outputs,
-// and returns whether it can match the client's outputs.
-func (s *Server) VerifyFinalizeBatch(input, output [][]byte, info []byte) bool {
-	res := true
-
-	for i, in := range input {
-		res = s.VerifyFinalize(in, info, output[i])
-	}
-
-	return res
-}
-
 // PrivateKey returns the server's serialized private key.
 func (s *Server) PrivateKey() []byte {
 	return s.privateKey.Encode()
@@ -182,5 +140,5 @@ func (s *Server) PublicKey() []byte {
 
 // Ciphersuite returns the cipher suite used in the server's instance.
 func (s *Server) Ciphersuite() Ciphersuite {
-	return s.oprf.id
+	return s.oprf.ciphersuite
 }

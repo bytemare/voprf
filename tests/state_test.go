@@ -11,6 +11,7 @@ package voprf_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -47,20 +48,38 @@ func TestEvaluationSerde(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	errSerDeFailed := errors.New("evaluation serde failed")
+
 	if !areArraysOfArraysEqual(evaluation.Elements, deser.Elements) {
-		t.Fatal("evaluation serde failed")
+		t.Fatal(errSerDeFailed)
 	}
 
 	if bytes.Compare(evaluation.ProofC, evaluation.ProofC) != 0 {
-		t.Fatal("evaluation serde failed")
+		t.Fatal(errSerDeFailed)
 	}
 
 	if bytes.Compare(evaluation.ProofS, evaluation.ProofS) != 0 {
-		t.Fatal("evaluation serde failed")
+		t.Fatal(errSerDeFailed)
 	}
 }
 
-func TestClient_State(t *testing.T) {
+func serdeExport(t *testing.T, client *voprf.Client) (*voprf.State, *voprf.State) {
+	export := client.Export()
+
+	serialized, err := json.Marshal(export)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state := &voprf.State{}
+	if err := json.Unmarshal(serialized, state); err != nil {
+		t.Fatal(err)
+	}
+
+	return export, state
+}
+
+func TestClientState(t *testing.T) {
 	suite := voprf.Ristretto255Sha512
 	input := []byte("input")
 	kp := suite.KeyGen()              // only used in VOPRF and POPRF
@@ -68,24 +87,14 @@ func TestClient_State(t *testing.T) {
 
 	for _, mode := range []voprf.Mode{voprf.OPRF, voprf.VOPRF, voprf.POPRF} {
 		t.Run(fmt.Sprintf("State test for mode %v", mode), func(t *testing.T) {
-			client, err := suite.Client(mode, kp.PublicKey)
+			client, err := suite.Client(mode, kp.PublicKey.Encode())
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			client.Blind(input, info)
 
-			export := client.Export()
-
-			serialized, err := json.Marshal(export)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			state := &voprf.State{}
-			if err := json.Unmarshal(serialized, state); err != nil {
-				t.Fatal(err)
-			}
+			export, state := serdeExport(t, client)
 
 			resumed, err := state.RecoverClient()
 			if err != nil {

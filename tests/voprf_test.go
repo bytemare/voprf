@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-// SPDX-License-Identifier: MIT
 //
 // Copyright (C) 2024 Daniel Bourdrez. All Rights Reserved.
 //
@@ -11,10 +10,13 @@ package voprf_test
 
 import (
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/bytemare/voprf"
 )
+
+var errExpectedEquality = errors.New("expected equality")
 
 func makeClientAndServer(t *testing.T, mode voprf.Mode, ciphersuite voprf.Ciphersuite) (*voprf.Client, *voprf.Server) {
 	server, err := ciphersuite.Server(mode, nil)
@@ -105,6 +107,39 @@ func TestBatching(t *testing.T) {
 	})
 }
 
+func TestAvailability(t *testing.T) {
+	testAll(t, func(c *configuration) {
+		if !c.ciphersuite.Available() {
+			t.Fatal("expected availability")
+		}
+	})
+}
+
+func TestCiphersuiteGroup(t *testing.T) {
+	testAll(t, func(c *configuration) {
+		if c.ciphersuite.Group() != c.group {
+			t.Fatal(errExpectedEquality)
+		}
+
+		ciphersuite, err := voprf.FromGroup(c.group)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if ciphersuite != c.ciphersuite {
+			t.Fatal(errExpectedEquality)
+		}
+	})
+}
+
+func TestCiphersuiteHashes(t *testing.T) {
+	testAll(t, func(c *configuration) {
+		if c.hash != c.ciphersuite.Hash() {
+			t.Fatal(errExpectedEquality)
+		}
+	})
+}
+
 func TestServerKeys(t *testing.T) {
 	mode := voprf.OPRF
 
@@ -126,7 +161,7 @@ func TestServerKeys(t *testing.T) {
 
 		pk := c.ciphersuite.Group().Base().Multiply(private)
 		if pk.Equal(public) != 1 {
-			t.Fatal("expected equality")
+			t.Fatal(errExpectedEquality)
 		}
 	})
 }
@@ -149,9 +184,9 @@ func TestDeriveKeyPair(t *testing.T) {
 	refPk := ciphersuite.Group().NewElement()
 	_ = refPk.Decode(encodedReferencePublicKeyR255)
 
-	sk, pk := ciphersuite.DeriveKeyPair(voprf.OPRF, random, info)
+	keyPair := ciphersuite.DeriveKeyPair(voprf.OPRF, random, info)
 
-	if sk.Equal(refSk) != 1 || pk.Equal(refPk) != 1 {
-		t.Fatal("expected equality")
+	if keyPair.SecretKey.Equal(refSk) != 1 || keyPair.PublicKey.Equal(refPk) != 1 {
+		t.Fatal(errExpectedEquality)
 	}
 }

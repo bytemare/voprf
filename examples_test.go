@@ -10,6 +10,7 @@ package voprf_test
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	"github.com/bytemare/voprf"
 )
@@ -41,6 +42,7 @@ func exchangeWithServer(blinded []byte, verifiable bool) []byte {
 	return ev
 }
 
+// This shows you how to set up and run the base OPRF client.
 func Example_client() {
 	input := []byte("input")
 
@@ -52,13 +54,15 @@ func Example_client() {
 
 	// The client blinds the initial input, and sends this to the server.
 	blinded := client.Blind(input, nil)
+	fmt.Printf("Send these %d bytes to the server.\n", len(blinded))
 
-	// Exchange with the server is not covered here. The following call is to mock an exchange with a server.
-	ev := exchangeWithServer(blinded, false)
+	// Exchange with the server is not covered in this example. Let's say the server sends the following serialized
+	// evaluation.
+	evaluation, _ := hex.DecodeString("00010020b4d261d982c6edd2fea53e8a39c1df6393f23cb9d1b4768891ec2f43b8d8e831")
 
 	// The client needs to decode the evaluation to finalize the process.
 	eval := new(voprf.Evaluation)
-	if err := eval.Deserialize(ev); err != nil {
+	if err = eval.Deserialize(evaluation); err != nil {
 		panic(err)
 	}
 
@@ -67,9 +71,10 @@ func Example_client() {
 	if output == nil || err != nil {
 		panic(err)
 	}
-	// Output:
+	// Output:Send these 32 bytes to the server.
 }
 
+// This shows you how to set up and run the Verifiable OPRF client.
 func Example_verifiableClient() {
 	ciphersuite := voprf.Ristretto255Sha512
 	input := []byte("input")
@@ -85,11 +90,11 @@ func Example_verifiableClient() {
 	blinded := client.Blind(input, nil)
 
 	// Exchange with the server is not covered here. The following call is to mock an exchange with a server.
-	ev := exchangeWithServer(blinded, true)
+	evaluation := exchangeWithServer(blinded, true)
 
 	// The client needs to decode the evaluation to finalize the process.
 	eval := new(voprf.Evaluation)
-	if err := eval.Deserialize(ev); err != nil {
+	if err := eval.Deserialize(evaluation); err != nil {
 		panic(err)
 	}
 
@@ -102,6 +107,7 @@ func Example_verifiableClient() {
 	// Output:
 }
 
+// This shows you how to set up and run the base OPRF server.
 func Example_server() {
 	// We suppose the client sends this blinded element.
 	blinded, _ := hex.DecodeString("7eaf3d7cbe43d54637274342ce53578b2aba836f297f4f07997a6e1dced1c058")
@@ -123,6 +129,7 @@ func Example_server() {
 	// Output:
 }
 
+// This shows you how to set up and run the Verifiable OPRF server.
 func Example_verifiableServer() {
 	privateKey, _ := hex.DecodeString("8132542d5ed08594e7522b5eac6bee38bab5868996c25a3fd2a7739be1856b04")
 

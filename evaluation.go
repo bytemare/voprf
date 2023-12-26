@@ -16,7 +16,7 @@ import (
 
 // Evaluation holds the serialized evaluated elements and serialized proof.
 type Evaluation struct {
-	// Elements represents the unique serialization of an Elements
+	// Elements represents the unique serialization of Elements
 	Elements [][]byte `json:"e"`
 
 	// Proofs

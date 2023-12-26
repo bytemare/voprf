@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	group "github.com/bytemare/crypto"
+	"github.com/bytemare/hash"
 
 	"github.com/bytemare/voprf"
 )
@@ -33,28 +34,45 @@ type configuration struct {
 	curve       elliptic.Curve
 	ciphersuite voprf.Ciphersuite
 	name        string
+	hash        hash.Hashing
+	group       group.Group
 }
 
 var configurationTable = []configuration{
 	{
 		name:        "Ristretto255",
 		ciphersuite: voprf.Ristretto255Sha512,
+		group:       group.Ristretto255Sha512,
+		hash:        hash.SHA512,
 		curve:       nil,
 	},
 	{
 		name:        "P256Sha256",
 		ciphersuite: voprf.P256Sha256,
+		group:       group.P256Sha256,
+		hash:        hash.SHA256,
 		curve:       elliptic.P256(),
 	},
 	{
 		name:        "P384Sha512",
 		ciphersuite: voprf.P384Sha384,
+		group:       group.P384Sha384,
+		hash:        hash.SHA384,
 		curve:       elliptic.P384(),
 	},
 	{
 		name:        "P521Sha512",
 		ciphersuite: voprf.P521Sha512,
+		group:       group.P521Sha512,
+		hash:        hash.SHA512,
 		curve:       elliptic.P521(),
+	},
+	{
+		name:        "Secp256k1Sha256",
+		ciphersuite: voprf.Secp256k1,
+		group:       group.Secp256k1,
+		hash:        hash.SHA256,
+		curve:       nil,
 	},
 }
 
@@ -102,16 +120,16 @@ func randomBytes(length int) []byte {
 	return r
 }
 
-func getBadNistElement(t *testing.T, id group.Group) []byte {
-	size := id.ElementLength()
+func getBadNistElement(t *testing.T, g group.Group) []byte {
+	size := g.ElementLength()
 	element := randomBytes(size)
 	// detag compression
 	element[0] = 4
 
 	// test if invalid compression is detected
-	err := id.NewElement().Decode(element)
+	err := g.NewElement().Decode(element)
 	if err == nil {
-		t.Errorf("detagged compressed point did not yield an error for group %s", id)
+		t.Errorf("detagged compressed point did not yield an error for group %s", g)
 	}
 
 	return element
@@ -183,19 +201,19 @@ func lengthPrefixEncode(input []byte) []byte {
 	return append(i2osp2(len(input)), input...)
 }
 
-func contextString(mode voprf.Mode, id voprf.Ciphersuite) []byte {
-	ctx := make([]byte, 0, len(voprf.Version)+3+len(id.String()))
+func contextString(mode voprf.Mode, g voprf.Ciphersuite) []byte {
+	ctx := make([]byte, 0, len(voprf.Version)+3+len(g.String()))
 	ctx = append(ctx, voprf.Version...)
 	ctx = append(ctx, "-"...)
 	ctx = append(ctx, byte(mode))
 	ctx = append(ctx, "-"...)
-	ctx = append(ctx, id.String()...)
+	ctx = append(ctx, g.String()...)
 
 	return ctx
 }
 
-func deriveKeyPair(seed, info []byte, mode voprf.Mode, id voprf.Ciphersuite) (*group.Scalar, *group.Element) {
-	dst := concatenate([]byte(deriveKeyPairDST), contextString(mode, id))
+func deriveKeyPair(seed, info []byte, mode voprf.Mode, g voprf.Ciphersuite) (*group.Scalar, *group.Element) {
+	dst := concatenate([]byte(deriveKeyPairDST), contextString(mode, g))
 	deriveInput := concatenate(seed, lengthPrefixEncode(info))
 
 	var counter uint8
@@ -206,9 +224,9 @@ func deriveKeyPair(seed, info []byte, mode voprf.Mode, id voprf.Ciphersuite) (*g
 			panic("impossible to generate non-zero scalar")
 		}
 
-		s = id.Group().HashToScalar(concatenate(deriveInput, []byte{counter}), dst)
+		s = g.Group().HashToScalar(concatenate(deriveInput, []byte{counter}), dst)
 		counter++
 	}
 
-	return s, id.Group().Base().Multiply(s)
+	return s, g.Group().Base().Multiply(s)
 }

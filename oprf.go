@@ -75,7 +75,7 @@ func (c Ciphersuite) new(mode Mode) *oprf {
 	return &oprf{
 		hash:          hashes[c].Get(),
 		contextString: contextString(mode, c),
-		id:            c,
+		ciphersuite:   c,
 		mode:          mode,
 		group:         groups[c],
 	}
@@ -130,30 +130,34 @@ func (c Ciphersuite) KeyGen() *KeyPair {
 	pk := c.Group().Base().Multiply(sk)
 
 	return &KeyPair{
-		ID:        c,
-		PublicKey: pk.Encode(),
-		SecretKey: sk.Encode(),
+		Ciphersuite: c,
+		PublicKey:   pk,
+		SecretKey:   sk,
 	}
 }
 
 // DeriveKeyPair deterministically generates a private and public key pair from input seed.
-func (c Ciphersuite) DeriveKeyPair(mode Mode, seed, info []byte) (*group.Scalar, *group.Element) {
+func (c Ciphersuite) DeriveKeyPair(mode Mode, seed, info []byte) *KeyPair {
 	dst := concatenate([]byte(deriveKeyPairDST), contextString(mode, c))
 	deriveInput := concatenate(seed, lengthPrefixEncode(info))
 
 	var counter uint8
-	var s *group.Scalar
+	var sk *group.Scalar
 
-	for s == nil || s.IsZero() {
+	for sk == nil || sk.IsZero() {
 		if counter > 255 {
 			panic("impossible to generate non-zero scalar")
 		}
 
-		s = c.Group().HashToScalar(concatenate(deriveInput, []byte{counter}), dst)
+		sk = c.Group().HashToScalar(concatenate(deriveInput, []byte{counter}), dst)
 		counter++
 	}
 
-	return s, c.Group().Base().Multiply(s)
+	return &KeyPair{
+		Ciphersuite: c,
+		PublicKey:   c.Group().Base().Multiply(sk),
+		SecretKey:   sk,
+	}
 }
 
 // Client returns a (P|V)OPRF client. For the OPRF mode, serverPublicKey should be nil, and non-nil otherwise.
@@ -189,19 +193,19 @@ func (c Ciphersuite) Server(mode Mode, privateKey []byte) (*Server, error) {
 
 type oprf struct {
 	hash          *hash.Hash
-	id            Ciphersuite
+	ciphersuite   Ciphersuite
 	contextString []byte
 	mode          Mode
 	group         group.Group
 }
 
-func contextString(mode Mode, id Ciphersuite) []byte {
-	ctx := make([]byte, 0, len(Version)+3+len(id.String()))
+func contextString(mode Mode, ciphersuite Ciphersuite) []byte {
+	ctx := make([]byte, 0, len(Version)+3+len(ciphersuite.String()))
 	ctx = append(ctx, Version...)
 	ctx = append(ctx, "-"...)
 	ctx = append(ctx, byte(mode))
 	ctx = append(ctx, "-"...)
-	ctx = append(ctx, id.String()...)
+	ctx = append(ctx, ciphersuite.String()...)
 
 	return ctx
 }
