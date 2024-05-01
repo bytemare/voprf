@@ -68,12 +68,12 @@ const (
 
 var (
 	groups = make(map[Ciphersuite]group.Group, nbIDs)
-	hashes = make(map[Ciphersuite]hash.Hashing, nbIDs)
+	hashes = make(map[Ciphersuite]hash.Hash, nbIDs)
 )
 
 func (c Ciphersuite) new(mode Mode) *oprf {
 	return &oprf{
-		hash:          hashes[c].Get(),
+		hash:          hashes[c].New(),
 		contextString: contextString(mode, c),
 		ciphersuite:   c,
 		mode:          mode,
@@ -109,7 +109,7 @@ func (c Ciphersuite) Group() group.Group {
 }
 
 // Hash returns the hash function identifier used in the cipher suite.
-func (c Ciphersuite) Hash() hash.Hashing {
+func (c Ciphersuite) Hash() hash.Hash {
 	return hashes[c]
 }
 
@@ -192,7 +192,7 @@ func (c Ciphersuite) Server(mode Mode, privateKey []byte) (*Server, error) {
 }
 
 type oprf struct {
-	hash          *hash.Hash
+	hash          hash.Hasher
 	ciphersuite   Ciphersuite
 	contextString []byte
 	mode          Mode
@@ -284,10 +284,10 @@ func (o *oprf) hashTranscript(input, info, unblinded []byte) []byte {
 	var h []byte
 
 	if info == nil { // OPRF and VOPRF
-		h = o.hash.Hash(encInput, encElement, encDST)
+		h = o.hash.Hash(0, encInput, encElement, encDST)
 	} else { // POPRF
 		encInfo := lengthPrefixEncode(info)
-		h = o.hash.Hash(encInput, encInfo, encElement, encDST)
+		h = o.hash.Hash(0, encInput, encInfo, encElement, encDST)
 	}
 
 	return h
@@ -298,7 +298,7 @@ func (c Ciphersuite) String() string {
 	return string(c)
 }
 
-func (c Ciphersuite) register(g group.Group, h hash.Hashing) {
+func (c Ciphersuite) register(g group.Group, h hash.Hash) {
 	if g.Available() && h.Available() {
 		groups[c] = g
 		hashes[c] = h

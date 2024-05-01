@@ -34,7 +34,7 @@ type configuration struct {
 	curve       elliptic.Curve
 	ciphersuite voprf.Ciphersuite
 	name        string
-	hash        hash.Hashing
+	hash        hash.Hash
 	group       group.Group
 }
 
