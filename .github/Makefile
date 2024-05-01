@@ -1,10 +1,8 @@
 .PHONY: update
 update:
 	@echo "Updating dependencies..."
-	@cd ../ && go get -u
+	@cd ../ && go get -u ./...
 	@go mod tidy
-	@echo "Updating Github Actions pins..."
-	@$(foreach file, $(wildcard workflows/*.yml), pin-github-action $(file);)
 
 .PHONY: update-linters
 update-linters:
@@ -39,7 +37,7 @@ lint: fmt license
 .PHONY: test
 test:
 	@echo "Running all tests ..."
-	@go test -v -vet=all ../tests
+	@go test -v -vet=all ../...
 
 .PHONY: vectors
 vectors:

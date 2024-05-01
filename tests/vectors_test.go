@@ -179,7 +179,7 @@ type vector struct {
 	Mode        voprf.Mode        `json:"mode"`
 }
 
-func hashToHash(h string) hash.Identifier {
+func hashToHash(h string) hash.Hash {
 	switch h {
 	case "SHA256":
 		return hash.SHA256
@@ -200,7 +200,7 @@ func hashToHash(h string) hash.Identifier {
 	case "BLAKE2XS":
 		return hash.BLAKE2XS
 	default:
-		return nil
+		return 0
 	}
 }
 
@@ -212,7 +212,7 @@ func (v vector) checkParams(t *testing.T) {
 
 	// Check hash
 	hID := hashToHash(v.Hash)
-	if hID == nil {
+	if hID == 0 {
 		t.Fatalf("invalid hash function %v", v.Hash)
 	}
 

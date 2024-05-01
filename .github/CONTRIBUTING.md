@@ -30,6 +30,10 @@ Please note that changes that are purely cosmetic and do not add anything substa
 
 This project tries to be as Go idiomatic as possible. Conventions from [Effective Go](https://golang.org/doc/effective_go) apply here. Tests use a very opinionated linting configuration that you can use before committing to your changes.
 
+### Governance Model
+
+This project follows the [Benevolent Dictator Governance Model](http://oss-watch.ac.uk/resources/benevolentdictatorgovernancemodel) where the project owner and lead makes all final decisions.
+
 ### Licence
 
 By contributing to this project, you agree that your contributions will be licensed under the project's [License](https://github.com/bytemare/voprf/blob/main/LICENSE).

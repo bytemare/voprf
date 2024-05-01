@@ -58,7 +58,7 @@ func (o *oprf) computeComposites(k *group.Scalar, encGk []byte, cs, ds []*group.
 	encSeedDST := lengthPrefixEncode(dst(dstSeed, o.contextString))
 
 	// build seed
-	seed := o.hash.Hash(encGk, encSeedDST)
+	seed := o.hash.Hash(0, encGk, encSeedDST)
 	encSeed := lengthPrefixEncode(seed)
 
 	// This means where calling from the server, and can optimize computation of Z, since Zi = sks * Mi
