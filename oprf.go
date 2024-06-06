@@ -6,312 +6,127 @@
 // LICENSE file in the root directory of this source tree or at
 // https://spdx.org/licenses/MIT.html
 
+// Package voprf implements RFC9497 and provides abstracted access to Oblivious Pseudorandom Functions (OPRF) and
+// Threshold Oblivious Pseudorandom Functions (TOPRF) using Elliptic Curve Prime Order Groups (EC-OPRF).
+// For VOPRF and POPRF use the github.com/bytemare/oprf/voprf package.
 package voprf
 
 import (
-	"fmt"
-
 	group "github.com/bytemare/crypto"
-	"github.com/bytemare/hash"
+
+	"github.com/bytemare/voprf/internal"
 )
 
-// Mode distinguishes between the OPRF base mode and the VOPRF mode.
-type Mode byte
+// Ciphersuite of the xOPRF compatible cipher suite to be used.
+type Ciphersuite byte
 
 const (
-	// OPRF identifies the base mode.
-	OPRF Mode = iota
+	// Ristretto255Sha512 identifies the Ristretto255 group and SHA-512.
+	Ristretto255Sha512 = Ciphersuite(group.Ristretto255Sha512)
 
-	// VOPRF identifies the verifiable mode.
-	VOPRF
+	// decaf448Shake256 identifies the Decaf448 group and Shake-256. Not supported.
+	// decaf448Shake256 = 2.
 
-	// POPRF identifies the partially-oblivious mode.
-	POPRF
+	// P256Sha256 identifies the NIST P-256 group and SHA-256.
+	P256Sha256 = Ciphersuite(group.P256Sha256)
+
+	// P384Sha384 identifies the NIST P-384 group and SHA-384.
+	P384Sha384 = Ciphersuite(group.P384Sha384)
+
+	// P521Sha512 identifies the NIST P-512 group and SHA-512.
+	P521Sha512 = Ciphersuite(group.P521Sha512)
+
+	// Secp256k1 identifies the SECp256k1 group and SHA-256.
+	Secp256k1 = Ciphersuite(group.Secp256k1)
 )
 
-// Ciphersuite of the OPRF compatible cipher suite to be used.
-type Ciphersuite string
-
-const (
-	// Ristretto255Sha512 is the OPRF cipher suite of the Ristretto255 group and SHA-512.
-	Ristretto255Sha512 Ciphersuite = "ristretto255-SHA512"
-
-	// Decaf448Sha512 is the OPRF cipher suite of the Decaf448 group and SHA-512.
-	// decaf448Sha512 Ciphersuite = "decaf448-SHAKE256".
-
-	// P256Sha256 is the OPRF cipher suite of the NIST P-256 group and SHA-256.
-	P256Sha256 Ciphersuite = "P256-SHA256"
-
-	// P384Sha384 is the OPRF cipher suite of the NIST P-384 group and SHA-384.
-	P384Sha384 Ciphersuite = "P384-SHA384"
-
-	// P521Sha512 is the OPRF cipher suite of the NIST P-512 group and SHA-512.
-	P521Sha512 Ciphersuite = "P521-SHA512"
-
-	// Secp256k1 is the OPRF cipher suite of the SECp256k1 group and SHA-256.
-	Secp256k1 Ciphersuite = "secp256k1-SHA256"
-
-	nbIDs = 5
-
-	// Version is a string explicitly stating the Version name.
-	Version = "OPRFV1"
-
-	// deriveKeyPairDST is the DST prefix for the DeriveKeyPair function.
-	deriveKeyPairDST = "DeriveKeyPair"
-
-	// hash2groupDSTPrefix is the DST prefix to use for HashToGroup operations.
-	hash2groupDSTPrefix = "HashToGroup-"
-
-	// hash2scalarDSTPrefix is the DST prefix to use for HashToScalar operations.
-	hash2scalarDSTPrefix = "HashToScalar-"
-)
-
-var (
-	groups = make(map[Ciphersuite]group.Group, nbIDs)
-	hashes = make(map[Ciphersuite]hash.Hash, nbIDs)
-)
-
-func (c Ciphersuite) new(mode Mode) *oprf {
-	return &oprf{
-		hash:          hashes[c].New(),
-		contextString: contextString(mode, c),
-		ciphersuite:   c,
-		mode:          mode,
-		group:         groups[c],
-	}
+// FromGroup returns a Ciphersuite given a Group.
+func FromGroup(g group.Group) Ciphersuite {
+	return Ciphersuite(g)
 }
 
-// Available returns whether the Ciphersuite is registered and available for usage.
-func (c Ciphersuite) Available() bool {
-	// Check for invalid identifiers
-	switch c {
-	case Ristretto255Sha512, P256Sha256, P384Sha384, P521Sha512, Secp256k1:
-		break
-	default:
-		return false
-	}
-
-	// Check for unregistered groups and hashes
-	if _, ok := groups[c]; !ok {
-		return false
-	}
-
-	if _, ok := hashes[c]; !ok {
-		return false
-	}
-
-	return true
-}
-
-// Group returns the group identifier used in the cipher suite.
+// Group returns the elliptic curve prime-order group of the ciphersuite.
 func (c Ciphersuite) Group() group.Group {
-	return groups[c]
+	return group.Group(c)
 }
 
-// Hash returns the hash function identifier used in the cipher suite.
-func (c Ciphersuite) Hash() hash.Hash {
-	return hashes[c]
+// Name returns the [RFC9497](https://datatracker.ietf.org/doc/rfc9497) compliant identifier of the ciphersuite.
+func (c Ciphersuite) Name() string {
+	return internal.CiphersuiteIdentifier[group.Group(c)]
 }
 
-// FromGroup returns a (V)OPRF Ciphersuite given a Group Ciphersuite.
-func FromGroup(g group.Group) (Ciphersuite, error) {
-	for k, v := range groups {
-		if v == g {
-			return k, nil
-		}
-	}
-
-	return "", errParamInvalidID
+// DeriveKeyPair returns a private-public key pair for the OPRF mode, given a secret seed and instance specific info.
+// VOPRF and POPRF keys must be created with server.DeriveKeyPair() in the voprf package.
+// TOPRF key pairs should be created using a distributed key generation protocol.
+func DeriveKeyPair(c Ciphersuite, seed, info []byte) (*group.Scalar, *group.Element) {
+	// We don't use this as a method to a Ciphersuite, as it might be confusing when in VOPRF or POPRF mode, which
+	// use the Ciphersuite identifier from this package.
+	return internal.LoadConfiguration(c.Group(), internal.OPRF).DeriveKeyPair(seed, info)
 }
 
-// KeyGen returns a fresh KeyPair for the given cipher suite.
-func (c Ciphersuite) KeyGen() *KeyPair {
-	sk := c.Group().NewScalar().Random()
-	pk := c.Group().Base().Multiply(sk)
-
-	return &KeyPair{
-		Ciphersuite: c,
-		PublicKey:   pk,
-		SecretKey:   sk,
-	}
-}
-
-// DeriveKeyPair deterministically generates a private and public key pair from input seed.
-func (c Ciphersuite) DeriveKeyPair(mode Mode, seed, info []byte) *KeyPair {
-	dst := concatenate([]byte(deriveKeyPairDST), contextString(mode, c))
-	deriveInput := concatenate(seed, lengthPrefixEncode(info))
-
-	var counter uint8
-	var sk *group.Scalar
-
-	for sk == nil || sk.IsZero() {
-		if counter > 255 {
-			panic("impossible to generate non-zero scalar")
-		}
-
-		sk = c.Group().HashToScalar(concatenate(deriveInput, []byte{counter}), dst)
-		counter++
-	}
-
-	return &KeyPair{
-		Ciphersuite: c,
-		PublicKey:   c.Group().Base().Multiply(sk),
-		SecretKey:   sk,
-	}
-}
-
-// Client returns a (P|V)OPRF client. For the OPRF mode, serverPublicKey should be nil, and non-nil otherwise.
-func (c Ciphersuite) Client(mode Mode, serverPublicKey []byte) (*Client, error) {
-	if mode != OPRF && mode != VOPRF && mode != POPRF {
-		return nil, errParamInvalidMode
-	}
-
-	client := c.client(mode)
-
-	if mode == VOPRF || mode == POPRF {
-		if serverPublicKey == nil {
-			return nil, errParamNoPubKey
-		}
-
-		if err := client.setServerPublicKey(serverPublicKey); err != nil {
-			return nil, err
-		}
-	}
-
-	return client, nil
-}
-
-// Server returns a (P|V)OPRF server instantiated with the given encoded private key.
-// If privateKey is nil, a new private/public key pair is created.
-func (c Ciphersuite) Server(mode Mode, privateKey []byte) (*Server, error) {
-	if mode != OPRF && mode != VOPRF && mode != POPRF {
-		return nil, errParamInvalidMode
-	}
-
-	return c.server(mode, privateKey)
-}
-
-type oprf struct {
-	hash          hash.Hasher
-	ciphersuite   Ciphersuite
-	contextString []byte
-	mode          Mode
-	group         group.Group
-}
-
-func contextString(mode Mode, ciphersuite Ciphersuite) []byte {
-	ctx := make([]byte, 0, len(Version)+3+len(ciphersuite.String()))
-	ctx = append(ctx, Version...)
-	ctx = append(ctx, "-"...)
-	ctx = append(ctx, byte(mode))
-	ctx = append(ctx, "-"...)
-	ctx = append(ctx, ciphersuite.String()...)
-
-	return ctx
-}
-
-// HashToGroup maps the input data to an element of the group.
-func (o *oprf) HashToGroup(data []byte) *group.Element {
-	return o.group.HashToGroup(data, dst(hash2groupDSTPrefix, o.contextString))
-}
-
-// HashToScalar maps the input data to a scalar.
-func (o *oprf) HashToScalar(data []byte) *group.Scalar {
-	return o.group.HashToScalar(data, dst(hash2scalarDSTPrefix, o.contextString))
-}
-
-func (c Ciphersuite) client(mode Mode) *Client {
+// Client returns an OPRF client.
+func (c Ciphersuite) Client() *Client {
 	return &Client{
-		tweakedKey:      nil,
-		serverPublicKey: nil,
-		oprf:            c.new(mode),
-		input:           nil,
-		blind:           nil,
-		blindedElement:  nil,
+		Client: internal.NewClient(internal.OPRF, group.Group(c)),
 	}
 }
 
-func (c *Client) setServerPublicKey(serverPublicKey []byte) error {
-	if serverPublicKey == nil { // OPRF
-		return nil
-	}
-
-	pub := c.group.NewElement()
-	if err := pub.Decode(serverPublicKey); err != nil {
-		return fmt.Errorf("invalid public key: %w", err)
-	}
-
-	c.serverPublicKey = pub
-
-	return nil
+// Client is used for OPRF and TOPRF client executions.
+type Client struct {
+	*internal.Client
 }
 
-func (c Ciphersuite) server(mode Mode, privateKey []byte) (*Server, error) {
-	s := &Server{
-		privateKey: nil,
-		publicKey:  nil,
-		oprf:       c.new(mode),
-	}
+// SetBlind sets one or multiple blinds in the client's blind register. This is optional, and useful if you want to
+// force usage of specific blinding scalar. If no blinding scalars are set, new, random blinds will be used.
+func (c *Client) SetBlind(blind ...*group.Scalar) {
+	c.Client.UpdateStateCapacity(len(blind))
 
-	if privateKey == nil {
-		s.KeyGen()
-	} else {
-		sk := s.group.NewScalar()
-		if err := sk.Decode(privateKey); err != nil {
-			return nil, fmt.Errorf("invalid private key: %w", err)
-		}
-
-		s.privateKey = sk
-		s.publicKey = s.group.Base().Multiply(sk)
-	}
-
-	return s, nil
-}
-
-func (o *oprf) pTag(info []byte) *group.Scalar {
-	framedInfo := make([]byte, 0, len(dstInfo)+2+len(info)) // dstContext + s.contextString + lengthPrefixEncode(info)
-	framedInfo = append(framedInfo, dstInfo...)
-	framedInfo = append(framedInfo, lengthPrefixEncode(info)...)
-
-	return o.HashToScalar(framedInfo)
-}
-
-func (o *oprf) hashTranscript(input, info, unblinded []byte) []byte {
-	encInput := lengthPrefixEncode(input)
-	encElement := lengthPrefixEncode(unblinded)
-	encDST := []byte(dstFinalize)
-
-	var h []byte
-
-	if info == nil { // OPRF and VOPRF
-		h = o.hash.Hash(0, encInput, encElement, encDST)
-	} else { // POPRF
-		encInfo := lengthPrefixEncode(info)
-		h = o.hash.Hash(0, encInput, encInfo, encElement, encDST)
-	}
-
-	return h
-}
-
-// String implements the Stringer() interface for the Ciphersuite.
-func (c Ciphersuite) String() string {
-	return string(c)
-}
-
-func (c Ciphersuite) register(g group.Group, h hash.Hash) {
-	if g.Available() && h.Available() {
-		groups[c] = g
-		hashes[c] = h
-	} else {
-		panic(fmt.Sprintf("OPRF dependencies not available - Group: %v, Hash: %v", g.Available(), h.Available()))
+	for i, b := range blind {
+		c.Client.SetBlind(i, b)
 	}
 }
 
-func init() {
-	Ristretto255Sha512.register(group.Ristretto255Sha512, hash.SHA512)
-	// Decaf448Sha512.register(group.Curve448Sha512, hash.SHA512).
-	P256Sha256.register(group.P256Sha256, hash.SHA256)
-	P384Sha384.register(group.P384Sha384, hash.SHA384)
-	P521Sha512.register(group.P521Sha512, hash.SHA512)
-	Secp256k1.register(group.Secp256k1, hash.SHA256)
+// Blind blinds the input using the first blinding scalar in the Client's register. If no blinding scalars were
+// previously set, new, random blinds will be used.
+func (c *Client) Blind(input []byte) *group.Element {
+	return c.Client.Blind(0, input)
+}
+
+// BlindBatch blinds the given set, using either previously set blinds in the same order (if they have been set) or
+// newly generated random blinds. Note that if not enough blinds were set, new, random blinds will be used as necessary.
+func (c *Client) BlindBatch(inputs [][]byte) []*group.Element {
+	c.UpdateStateCapacity(len(inputs))
+	blindedInput := make([]*group.Element, len(inputs))
+
+	for i, in := range inputs {
+		blindedInput[i] = c.Client.Blind(i, in)
+	}
+
+	return blindedInput
+}
+
+// Finalize unblinds the evaluated element and returns the protocol output.
+func (c *Client) Finalize(evaluated *group.Element) []byte {
+	return c.Client.Finalize(0, evaluated)
+}
+
+// FinalizeBatch unblinds the evaluated elements and returns the corresponding protocol outputs.
+func (c *Client) FinalizeBatch(evaluated []*group.Element) ([][]byte, error) {
+	return c.Client.FinalizeBatch(evaluated)
+}
+
+// Evaluate is the server's function to evaluate a Client provided blinded element with the server's secret key.
+func Evaluate(key *group.Scalar, blinded *group.Element) *group.Element {
+	return blinded.Copy().Multiply(key)
+}
+
+// EvaluateBatch is the server's function to evaluate a set of Client provided blinded elements with the
+// server's secret key.
+func EvaluateBatch(key *group.Scalar, blinded []*group.Element) []*group.Element {
+	evaluated := make([]*group.Element, len(blinded))
+	for i, b := range blinded {
+		evaluated[i] = Evaluate(key, b)
+	}
+
+	return evaluated
 }

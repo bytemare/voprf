@@ -6,7 +6,7 @@
 // LICENSE file in the root directory of this source tree or at
 // https://spdx.org/licenses/MIT.html
 
-package voprf
+package internal
 
 import (
 	"crypto/subtle"
@@ -16,14 +16,15 @@ import (
 )
 
 // KeyPair assembles a VOPRF key pair. The SecretKey can be used as the evaluation key for
-// the group identified by Ciphersuite.
+// the Group identified by Ciphersuite.
 type KeyPair struct {
 	PublicKey   *group.Element
 	SecretKey   *group.Scalar
-	Ciphersuite Ciphersuite
+	Ciphersuite group.Group
 }
 
-func i2osp2(value int) []byte {
+// I2osp2 encodes the integer to a 2-byte byte string.
+func I2osp2(value int) []byte {
 	out := make([]byte, 2)
 	binary.BigEndian.PutUint16(out, uint16(value))
 
@@ -31,7 +32,7 @@ func i2osp2(value int) []byte {
 }
 
 func lengthPrefixEncode(input []byte) []byte {
-	return append(i2osp2(len(input)), input...)
+	return append(I2osp2(len(input)), input...)
 }
 
 func ctEqual(a, b []byte) bool {
@@ -61,11 +62,7 @@ func concatenate(input ...[]byte) []byte {
 	return buf
 }
 
-func dst(prefix string, contextString []byte) []byte {
-	p := []byte(prefix)
-	t := make([]byte, 0, len(p)+len(contextString))
-	t = append(t, p...)
-	t = append(t, contextString...)
-
-	return t
+// Dst returns the domain separation tag, i.e. the concatenation of the input.
+func Dst(prefix string, contextString []byte) []byte {
+	return []byte(prefix + string(contextString))
 }

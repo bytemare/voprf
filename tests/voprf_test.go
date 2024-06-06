@@ -13,20 +13,22 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/bytemare/voprf"
+	oprf "github.com/bytemare/voprf"
+	"github.com/bytemare/voprf/voprf"
 )
 
 var errExpectedEquality = errors.New("expected equality")
 
-func makeClientAndServer(t *testing.T, mode voprf.Mode, ciphersuite voprf.Ciphersuite) (*voprf.Client, *voprf.Server) {
-	server, err := ciphersuite.Server(mode, nil)
-	if err != nil {
+func makeVPClientAndServer(t *testing.T, ciphersuite oprf.Ciphersuite, info []byte) (*voprf.Client, *voprf.Server) {
+	sk := ciphersuite.Group().NewScalar().Random()
+	pk := ciphersuite.Group().Base().Multiply(sk)
+
+	server := voprf.NewServer(ciphersuite, info...)
+	if err := server.SetKeyPair(sk, pk); err != nil {
 		t.Fatal(err)
 	}
 
-	spk := server.PublicKey()
-
-	client, err := ciphersuite.Client(mode, spk)
+	client, err := voprf.NewClient(ciphersuite, pk, info...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,53 +36,58 @@ func makeClientAndServer(t *testing.T, mode voprf.Mode, ciphersuite voprf.Cipher
 	return client, server
 }
 
-func runOPRF(t *testing.T, c *configuration, mode voprf.Mode, input, info []byte) *voprf.Evaluation {
-	client, server := makeClientAndServer(t, mode, c.ciphersuite)
+func TestOPRF(t *testing.T) {
+	input := []byte("input")
 
-	blinded := client.Blind(input, info)
+	testAll(t, func(c *configuration) {
+		serverKey := c.group.NewScalar().Random()
+		client := c.ciphersuite.Client()
+		blinded := client.Blind(input)
+		evaluated := oprf.Evaluate(serverKey, blinded)
+		_ = client.Finalize(evaluated)
+	})
+}
 
-	evaluation, err := server.Evaluate(blinded, info)
+func doVPOPRF(t *testing.T, input, info []byte, c *configuration) {
+	serverKey := c.group.NewScalar().Random()
+	serverPubkey := c.group.Base().Multiply(serverKey)
+
+	server := voprf.NewServer(c.ciphersuite, info...)
+	if err := server.SetKeyPair(serverKey, serverPubkey); err != nil {
+		t.Fatal(err)
+	}
+
+	client, err := voprf.NewClient(c.ciphersuite, serverPubkey, info...)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = client.Finalize(evaluation, info); err != nil {
+	blinded := client.Blind(input)
+	evaluation := server.Evaluate(blinded)
+	_, err = client.Finalize(evaluation)
+	if err != nil {
 		t.Fatal(err)
 	}
-
-	return evaluation
-}
-
-func TestOPRF(t *testing.T) {
-	mode := voprf.OPRF
-	input := []byte("input")
-
-	testAll(t, func(c *configuration) {
-		_ = runOPRF(t, c, mode, input, nil)
-	})
 }
 
 func TestVOPRF(t *testing.T) {
-	mode := voprf.VOPRF
 	input := []byte("input")
 
 	testAll(t, func(c *configuration) {
-		_ = runOPRF(t, c, mode, input, nil)
+		doVPOPRF(t, input, nil, c)
 	})
 }
 
 func TestPOPRF(t *testing.T) {
-	mode := voprf.POPRF
 	info := []byte("info")
 	input := []byte("input")
 
 	testAll(t, func(c *configuration) {
-		_ = runOPRF(t, c, mode, input, info)
+		doVPOPRF(t, input, info, c)
 	})
 }
 
 func TestBatching(t *testing.T) {
-	mode := voprf.POPRF
 	info := []byte("info")
 	inputs := [][]byte{
 		[]byte("input1"),
@@ -89,28 +96,12 @@ func TestBatching(t *testing.T) {
 	}
 
 	testAll(t, func(c *configuration) {
-		client, server := makeClientAndServer(t, mode, c.ciphersuite)
+		client, server := makeVPClientAndServer(t, c.ciphersuite, info)
+		blinded := client.BlindBatch(inputs)
+		evaluation := server.EvaluateBatch(blinded)
 
-		_, blinded, err := client.BlindBatch(inputs, info)
-		if err != nil {
+		if _, err := client.FinalizeBatch(evaluation); err != nil {
 			t.Fatal(err)
-		}
-
-		evaluation, err := server.EvaluateBatch(blinded, info)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if _, err = client.FinalizeBatch(evaluation, info); err != nil {
-			t.Fatal(err)
-		}
-	})
-}
-
-func TestAvailability(t *testing.T) {
-	testAll(t, func(c *configuration) {
-		if !c.ciphersuite.Available() {
-			t.Fatal("expected availability")
 		}
 	})
 }
@@ -121,10 +112,7 @@ func TestCiphersuiteGroup(t *testing.T) {
 			t.Fatal(errExpectedEquality)
 		}
 
-		ciphersuite, err := voprf.FromGroup(c.group)
-		if err != nil {
-			t.Fatal(err)
-		}
+		ciphersuite := oprf.FromGroup(c.group)
 
 		if ciphersuite != c.ciphersuite {
 			t.Fatal(errExpectedEquality)
@@ -132,43 +120,9 @@ func TestCiphersuiteGroup(t *testing.T) {
 	})
 }
 
-func TestCiphersuiteHashes(t *testing.T) {
-	testAll(t, func(c *configuration) {
-		if c.hash != c.ciphersuite.Hash() {
-			t.Fatal(errExpectedEquality)
-		}
-	})
-}
-
-func TestServerKeys(t *testing.T) {
-	mode := voprf.OPRF
-
-	testAll(t, func(c *configuration) {
-		server, err := c.ciphersuite.Server(mode, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		private := c.ciphersuite.Group().NewScalar()
-		if err = private.Decode(server.PrivateKey()); err != nil {
-			t.Fatal(err)
-		}
-
-		public := c.ciphersuite.Group().NewElement()
-		if err = public.Decode(server.PublicKey()); err != nil {
-			t.Fatal(err)
-		}
-
-		pk := c.ciphersuite.Group().Base().Multiply(private)
-		if pk.Equal(public) != 1 {
-			t.Fatal(errExpectedEquality)
-		}
-	})
-}
-
 func TestDeriveKeyPair(t *testing.T) {
 	info := []byte("some instance")
-	ciphersuite := voprf.Ristretto255Sha512
+	ciphersuite := oprf.Ristretto255Sha512
 
 	random, _ := hex.DecodeString("c332260baab120459e7ad1d47ce5a43f980abe9c19ecc0550bbd0dde58a548bf")
 	encodedReferenceSecretKeyR255, _ := hex.DecodeString(
@@ -184,9 +138,9 @@ func TestDeriveKeyPair(t *testing.T) {
 	refPk := ciphersuite.Group().NewElement()
 	_ = refPk.Decode(encodedReferencePublicKeyR255)
 
-	keyPair := ciphersuite.DeriveKeyPair(voprf.OPRF, random, info)
+	sk, pk := oprf.DeriveKeyPair(ciphersuite, random, info)
 
-	if keyPair.SecretKey.Equal(refSk) != 1 || keyPair.PublicKey.Equal(refPk) != 1 {
+	if sk.Equal(refSk) != 1 || pk.Equal(refPk) != 1 {
 		t.Fatal(errExpectedEquality)
 	}
 }
