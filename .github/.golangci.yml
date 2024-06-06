@@ -271,7 +271,7 @@ issues:
 run:
   tests: false
 
-#output:
-#  formats:
-#    - format: github-actions
-#  show-stats: true
+output:
+  formats:
+    - format: github-actions
+  show-stats: true
