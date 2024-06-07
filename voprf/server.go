@@ -17,6 +17,11 @@ import (
 	"github.com/bytemare/voprf/internal"
 )
 
+var (
+	errInvalidPrivateKey = errors.New("private key is nil or zero")
+	errInvalidKeyPair    = errors.New("input public key doesn't belong to the private key")
+)
+
 // Server is used for VOPRF or POPRF server executions. For OPRF or TOPRF, used the oprf package (no need for a server
 // instance).
 type Server struct {
@@ -53,10 +58,17 @@ func NewServer(cs voprf.Ciphersuite, poprfInfo ...byte) *Server {
 	return s
 }
 
-var (
-	errInvalidPrivateKey = errors.New("private key is nil or zero")
-	errInvalidKeyPair    = errors.New("input public key doesn't belong to the private key")
-)
+func (s *Server) setKeyPair(privateKey *group.Scalar, publicKey *group.Element) {
+	s.privateKey = privateKey
+	s.publicKey = publicKey
+
+	if s.Core.Mode == internal.POPRF {
+		s.scalar, s.t = s.Verifiable.TweakPrivateKey(privateKey)
+		s.tweakedKey = s.Core.Group.Base().Multiply(s.t)
+	} else {
+		s.scalar = s.privateKey
+	}
+}
 
 func checkKeys(g group.Group, privateKey *group.Scalar, publicKey *group.Element) error {
 	if publicKey == nil || publicKey.IsIdentity() {
@@ -72,18 +84,6 @@ func checkKeys(g group.Group, privateKey *group.Scalar, publicKey *group.Element
 	}
 
 	return nil
-}
-
-func (s *Server) setKeyPair(privateKey *group.Scalar, publicKey *group.Element) {
-	s.privateKey = privateKey
-	s.publicKey = publicKey
-
-	if s.Core.Mode == internal.POPRF {
-		s.scalar, s.t = s.Verifiable.TweakPrivateKey(privateKey)
-		s.tweakedKey = s.Core.Group.Base().Multiply(s.t)
-	} else {
-		s.scalar = s.privateKey
-	}
 }
 
 // SetKeyPair sets the server's private and public key pair. This returns an error if either key is nil, the public key

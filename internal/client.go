@@ -9,15 +9,9 @@
 package internal
 
 import (
-	"errors"
 	"slices"
 
 	group "github.com/bytemare/crypto"
-)
-
-var (
-	errBatchNoElements    = errors.New("no evaluated elements provided to Finalize()")
-	errBatchDifferentSize = errors.New("number of evaluations is different thant number of previously blinded inputs")
 )
 
 // A Client holds the core functionalities for all OPRF, TOPRF, VOPRF, and POPRF.
@@ -106,14 +100,6 @@ func (c *Client) Finalize(index int, evaluated *group.Element, info ...byte) []b
 // FinalizeBatch unblinds the evaluated elements and returns the corresponding protocol outputs. The optional info
 // argument must only be provided when using the POPRF mode.
 func (c *Client) FinalizeBatch(evaluated []*group.Element, info ...byte) ([][]byte, error) {
-	if len(evaluated) == 0 {
-		return nil, errBatchNoElements
-	}
-
-	if len(evaluated) != c.Size() {
-		return nil, errBatchDifferentSize
-	}
-
 	out := make([][]byte, len(evaluated))
 
 	for i, e := range evaluated {

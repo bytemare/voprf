@@ -87,7 +87,25 @@ func TestPOPRF(t *testing.T) {
 	})
 }
 
-func TestBatching(t *testing.T) {
+func TestOPRFBatching(t *testing.T) {
+	inputs := [][]byte{
+		[]byte("input1"),
+		[]byte("input2"),
+		[]byte("input3"),
+	}
+
+	testAll(t, func(c *configuration) {
+		client := c.ciphersuite.Client()
+		blinded := client.BlindBatch(inputs)
+		evaluation := oprf.EvaluateBatch(c.group.NewScalar().Random(), blinded)
+
+		if _, err := client.FinalizeBatch(evaluation); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestVPOPRFBatching(t *testing.T) {
 	info := []byte("info")
 	inputs := [][]byte{
 		[]byte("input1"),

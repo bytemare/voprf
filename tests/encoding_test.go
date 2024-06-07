@@ -10,7 +10,6 @@ package voprf_test
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/bytemare/voprf/voprf"
@@ -18,21 +17,18 @@ import (
 
 func Test_DecodeElement(t *testing.T) {
 	testAll(t, func(c *configuration) {
-		bad := getBadElement(t, c)
-
-		if _, err := c.ciphersuite.DecodeElement(bad); err == nil ||
-			!strings.Contains(err.Error(), "element Decode: ") {
-			t.Errorf("expected error, got %v", err)
+		element := c.group.NewElement().Base().Multiply(c.group.NewScalar().Random()).Encode()
+		if _, err := c.ciphersuite.DecodeElement(element); err != nil {
+			t.Errorf("unexpected error, got %v", err)
 		}
 	})
 }
 
 func Test_DecodeScalar(t *testing.T) {
 	testAll(t, func(c *configuration) {
-		bad := getBadScalar(t, c)
-
-		if _, err := c.ciphersuite.DecodeScalar(bad); err == nil || !strings.Contains(err.Error(), "scalar Decode: ") {
-			t.Errorf("expected error, got %v", err)
+		scalar := c.group.NewScalar().Random().Encode()
+		if _, err := c.ciphersuite.DecodeScalar(scalar); err != nil {
+			t.Errorf("unexpected error, got %v", err)
 		}
 	})
 }

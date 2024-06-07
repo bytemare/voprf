@@ -12,6 +12,8 @@
 package voprf
 
 import (
+	"errors"
+
 	group "github.com/bytemare/crypto"
 
 	"github.com/bytemare/voprf/internal"
@@ -38,6 +40,11 @@ const (
 
 	// Secp256k1 identifies the SECp256k1 group and SHA-256.
 	Secp256k1 = Ciphersuite(group.Secp256k1)
+)
+
+var (
+	errBatchNoElements    = errors.New("no evaluated elements provided to Finalize()")
+	errBatchDifferentSize = errors.New("number of evaluations is different thant number of previously blinded inputs")
 )
 
 // FromGroup returns a Ciphersuite given a Group.
@@ -112,6 +119,14 @@ func (c *Client) Finalize(evaluated *group.Element) []byte {
 
 // FinalizeBatch unblinds the evaluated elements and returns the corresponding protocol outputs.
 func (c *Client) FinalizeBatch(evaluated []*group.Element) ([][]byte, error) {
+	if len(evaluated) == 0 {
+		return nil, errBatchNoElements
+	}
+
+	if len(evaluated) != c.Size() {
+		return nil, errBatchDifferentSize
+	}
+
 	return c.Client.FinalizeBatch(evaluated)
 }
 

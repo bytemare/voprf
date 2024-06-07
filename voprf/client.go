@@ -19,7 +19,6 @@ import (
 
 var (
 	errInvalidPublicKey = errors.New("server public key is either nil or the identity element")
-	errInputNotSet      = errors.New("no prior input found")
 	errDifferentSize    = errors.New("number of evaluations differs from number of previously blinded elements")
 	errInputNilEval     = errors.New("provided evaluation is nil")
 	errInputNoEval      = errors.New("provided evaluation does not contain evaluations")
@@ -61,7 +60,7 @@ func NewClient(cs voprf.Ciphersuite, serverPublicKey *group.Element, poprfInfo .
 		verifiable:      internal.NewVerifiable(c.Core, poprfInfo),
 		serverPublicKey: serverPublicKey,
 		tweakedKey:      nil,
-		blindedInput:    nil,
+		blindedInput:    []*group.Element{},
 	}
 
 	if mode == internal.POPRF {
@@ -97,10 +96,6 @@ func (c *Client) verifyProof(evaluation *Evaluation) error {
 	var pk *group.Element
 	var cs, ds []*group.Element
 
-	if len(c.blindedInput) == 0 {
-		return errInputNotSet
-	}
-
 	if c.oprf.Mode == internal.VOPRF {
 		cs, ds = c.blindedInput, evaluation.Evaluations
 		pk = c.serverPublicKey
@@ -113,35 +108,25 @@ func (c *Client) verifyProof(evaluation *Evaluation) error {
 }
 
 func (c *Client) checkEvaluation(evaluation *Evaluation) error {
-	if evaluation == nil {
+	switch {
+	case evaluation == nil:
 		return errInputNilEval
-	}
-
-	if len(evaluation.Evaluations) == 0 {
-		return errInputNoEval
-	}
-
-	if evaluation.Proof[0] == nil {
+	case evaluation.Proof[0] == nil:
 		return errInputProofCNil
-	}
-
-	if evaluation.Proof[0].IsZero() {
+	case evaluation.Proof[0].IsZero():
 		return errInputProofCZero
-	}
-
-	if evaluation.Proof[1] == nil {
+	case evaluation.Proof[1] == nil:
 		return errInputProofSNil
-	}
-
-	if evaluation.Proof[1].IsZero() {
+	case evaluation.Proof[1].IsZero():
 		return errInputProofSZero
-	}
-
-	if len(evaluation.Evaluations) != len(c.blindedInput) {
+	case len(evaluation.Evaluations) == 0:
+		return errInputNoEval
+	case len(evaluation.Evaluations) != len(c.blindedInput):
+		// combined with the previous check this check, this also implies that len(c.blindedInput) >= 1
 		return errDifferentSize
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // Finalize verifies the Server provided proofs, and, if they are valid, unblinds the evaluated element and returns

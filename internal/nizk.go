@@ -19,7 +19,7 @@ const (
 	dstChallenge = "Challenge"
 )
 
-var errProofFailed = errors.New("proof fails")
+var errProofFailed = errors.New("invalid proof")
 
 // Verifiable enables VOPRF and POPRF functions over OPRF operations.
 type Verifiable struct {
