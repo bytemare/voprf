@@ -40,14 +40,6 @@ func ctEqual(a, b []byte) bool {
 }
 
 func concatenate(input ...[]byte) []byte {
-	if len(input) == 1 {
-		if len(input[0]) == 0 {
-			return nil
-		}
-
-		return input[0]
-	}
-
 	length := 0
 	for _, in := range input {
 		length += len(in)

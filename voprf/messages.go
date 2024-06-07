@@ -59,12 +59,21 @@ func (e *Evaluation) encodeEvaluations() []byte {
 	return output
 }
 
+func (e *Evaluation) encodeEvaluationsSplit() [][]byte {
+	output := make([][]byte, len(e.Evaluations))
+	for i, eval := range e.Evaluations {
+		output[i] = eval.Encode()
+	}
+
+	return output
+}
+
 // Serialize returns the compact byte encoding of the Evaluation.
 func (e *Evaluation) Serialize() []byte {
 	proof := e.encodeProof()
 	evaluations := e.encodeEvaluations()
 
-	output := make([]byte, 0, len(proof)+len(evaluations))
+	output := make([]byte, 0, 2*e.group.ScalarLength()+len(evaluations))
 	output = append(output, proof[0]...)
 	output = append(output, proof[1]...)
 	output = append(output, evaluations...)
@@ -93,22 +102,34 @@ func decodeProof(g group.Group, data []byte) ([]*group.Scalar, error) {
 	return []*group.Scalar{pc, ps}, nil
 }
 
-func decodeEvaluations(g group.Group, nbEvals int, data []byte) ([]*group.Element, error) {
+func decodeEvaluations(g group.Group, output []*group.Element, data []byte) error {
 	pLen := g.ElementLength()
 	i := 0
-	evaluations := make([]*group.Element, nbEvals)
 
-	for offset := 0; offset < len(evaluations); offset += pLen {
+	for offset := 0; offset < len(output); offset += pLen {
 		decoded := g.NewElement()
 		if err := decoded.Decode(data[offset : offset+pLen]); err != nil {
-			return nil, fmt.Errorf("invalid evaluation encoding - element %d: %w", i, err)
+			return fmt.Errorf("invalid evaluation encoding - element %d: %w", i, err)
 		}
 
-		evaluations[i] = decoded
+		output[i] = decoded
 		i++
 	}
 
-	return evaluations, nil
+	return nil
+}
+
+func decodeEvaluationsSplit(g group.Group, output []*group.Element, data [][]byte) error {
+	for i, eval := range data {
+		decoded := g.NewElement()
+		if err := decoded.Decode(eval); err != nil {
+			return fmt.Errorf("invalid evaluation encoding - element %d: %w", i, err)
+		}
+
+		output[i] = decoded
+	}
+
+	return nil
 }
 
 // Deserialize decodes a compact serialization of an Evaluation into e.
@@ -125,8 +146,8 @@ func (e *Evaluation) Deserialize(data []byte) error {
 
 	evaluationOffset := expectedProofLen
 	nbEvals := int(uint16(data[evaluationOffset+1]) | uint16(data[evaluationOffset])<<8)
-
 	evaluations := data[evaluationOffset+2:]
+
 	if len(evaluations) != nbEvals*pLen {
 		return errUnmarshalEvaluationEvals
 	}
@@ -136,8 +157,8 @@ func (e *Evaluation) Deserialize(data []byte) error {
 		return err
 	}
 
-	evals, err := decodeEvaluations(e.group, nbEvals, evaluations)
-	if err != nil {
+	evals := make([]*group.Element, nbEvals)
+	if err = decodeEvaluations(e.group, evals, evaluations); err != nil {
 		return err
 	}
 
@@ -162,10 +183,10 @@ func (e *Evaluation) UnmarshalBinary(data []byte) error {
 func (e *Evaluation) MarshalJSON() ([]byte, error) {
 	enc := struct {
 		Proof [2][]byte `json:"p"`
-		Eval  []byte    `json:"e"`
+		Eval  [][]byte  `json:"e"`
 	}{
 		Proof: e.encodeProof(),
-		Eval:  e.encodeEvaluations(),
+		Eval:  e.encodeEvaluationsSplit(),
 	}
 
 	out, err := json.Marshal(enc)
@@ -178,5 +199,36 @@ func (e *Evaluation) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON decodes a JSON encoded Evaluation into e.
 func (e *Evaluation) UnmarshalJSON(data []byte) error {
-	return e.Deserialize(data)
+	enc := struct {
+		Proof [2][]byte `json:"p"`
+		Eval  [][]byte  `json:"e"`
+	}{
+		Proof: [2][]byte{},
+		Eval:  [][]byte{},
+	}
+
+	if err := json.Unmarshal(data, &enc); err != nil {
+		return err
+	}
+
+	pc := e.group.NewScalar()
+	if err := pc.Decode(enc.Proof[0]); err != nil {
+		return fmt.Errorf("invalid c proof encoding: %w", err)
+	}
+
+	ps := e.group.NewScalar()
+	if err := ps.Decode(enc.Proof[1]); err != nil {
+		return fmt.Errorf("invalid s proof encoding: %w", err)
+	}
+
+	evals := make([]*group.Element, len(enc.Eval))
+	if err := decodeEvaluationsSplit(e.group, evals, enc.Eval); err != nil {
+		return err
+	}
+
+	e.Proof[0] = pc
+	e.Proof[1] = ps
+	e.Evaluations = evals
+
+	return nil
 }

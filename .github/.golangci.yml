@@ -146,6 +146,7 @@ linters-settings:
       - style
     disabled-checks:
       - unnamedResult
+      - sloppyReassign
   gocyclo:
     min-complexity: 15
   godox:

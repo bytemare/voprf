@@ -97,6 +97,13 @@ func getBadRistrettoElement() []byte {
 	return decoded
 }
 
+func getBadSecP256k1Scalar() []byte {
+	a := "00000000000000000000000000000000000000000000000000000000000001"
+	decoded, _ := hex.DecodeString(a)
+
+	return decoded
+}
+
 func badScalar(t *testing.T, g group.Group, curve elliptic.Curve) []byte {
 	order := curve.Params().P
 	exceeded := new(big.Int).Add(order, big.NewInt(2)).Bytes()
@@ -147,6 +154,8 @@ func getBadScalar(t *testing.T, c *configuration) []byte {
 	switch c.ciphersuite {
 	case oprf.Ristretto255Sha512:
 		return getBadRistrettoScalar()
+	case oprf.Secp256k1:
+		return getBadSecP256k1Scalar()
 	default:
 		return badScalar(t, c.ciphersuite.Group(), c.curve)
 	}

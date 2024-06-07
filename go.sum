@@ -10,8 +10,6 @@ github.com/bytemare/hash2curve v0.3.0 h1:41Npcbc+u/E252A5aCMtxDcz7JPkkX1QzShneTF
 github.com/bytemare/hash2curve v0.3.0/go.mod h1:itj45U8uqvCtWC0eCswIHVHswXcEHkpFui7gfJdPSfQ=
 github.com/bytemare/secp256k1 v0.1.2 h1:aM+p/+0y1h0SZWqS/yzjGPzffVFubJvwLjUgodFEWOo=
 github.com/bytemare/secp256k1 v0.1.2/go.mod h1:Pxb9miDs8PTt5mOktvvXiRflvLxI1wdxbXrc6IYsaho=
-github.com/bytemare/secret-sharing v0.1.1-0.20240521200815-77e8c3ad0689 h1:4KOIuk4w138AgaLtuad8PihkZGJSwnef+hbU/19RVkM=
-github.com/bytemare/secret-sharing v0.1.1-0.20240521200815-77e8c3ad0689/go.mod h1:P8YRt2irx5PdiL7EwJDBkVfS3EgLcbjMFV5gqPFf3GY=
 github.com/gtank/ristretto255 v0.1.2 h1:JEqUCPA1NvLq5DwYtuzigd7ss8fwbYay9fi4/5uMzcc=
 github.com/gtank/ristretto255 v0.1.2/go.mod h1:Ph5OpO6c7xKUGROZfWVLiJf9icMDwUeIvY4OmlYW69o=
 golang.org/x/crypto v0.23.0 h1:dIJU/v2J8Mdglj/8rJ6UUOM3Zc9zLZxVZwwxMooUSAI=
