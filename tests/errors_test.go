@@ -9,8 +9,10 @@
 package voprf_test
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -239,10 +241,6 @@ func Test_OPRF_Client_Finalize_BadBatch(t *testing.T) {
 	})
 }
 
-func getBadCiphersuite() oprf.Ciphersuite {
-	return oprf.Ciphersuite(group.Edwards25519Sha512)
-}
-
 func hasPanic(f func()) (has bool, err error) {
 	err = nil
 	var report interface{}
@@ -292,4 +290,169 @@ func Test_BadCiphersuite(t *testing.T) {
 	}); !hasPanic {
 		t.Fatalf("expected panic with wrong group: %v", err)
 	}
+}
+
+func pTag(g group.Group, info []byte) *group.Scalar {
+	framedInfo := make([]byte, 0, len("Info")+2+len(info))
+	framedInfo = append(framedInfo, "Info"...)
+	framedInfo = append(framedInfo, append(internal.I2osp2(len(info)), info...)...)
+	ctx := internal.ContextString(internal.POPRF, internal.CiphersuiteIdentifier[g])
+	dst := internal.Dst("HashToScalar-", ctx)
+
+	return g.HashToScalar(framedInfo, dst)
+}
+
+func Test_BreakPOPRF(t *testing.T) {
+	errInvalidPOPRFPrivateKey := errors.New(
+		"invalid input - POPRF private key tweaking yields the zero scalar",
+	)
+	errInvalidPOPRFPubKey := errors.New(
+		"invalid input - POPRF public key tweaking yields the group identity element",
+	)
+	info := []byte("info")
+
+	testAll(t, func(c *configuration) {
+		tag := pTag(c.group, info)
+		sk := c.group.NewScalar().Subtract(tag)
+		pk := c.group.Base().Multiply(sk)
+
+		if hasPanic, err := expectPanic(errInvalidPOPRFPrivateKey, func() {
+			_ = voprf.NewServer(c.ciphersuite, info...).SetKeyPair(sk, pk)
+		}); !hasPanic {
+			t.Fatalf("expected panic with wrong group: %v", err)
+		}
+
+		if hasPanic, err := expectPanic(errInvalidPOPRFPubKey, func() {
+			_, _ = voprf.NewClient(c.ciphersuite, pk, info...)
+		}); !hasPanic {
+			t.Fatalf("expected panic with wrong group: %v", err)
+		}
+	})
+}
+
+func Test_NewVerifiable_POPRFNotSet(t *testing.T) {
+	errWrongMode := errors.New("internal error: POPRF info provided but POPRF mode not set")
+
+	testAll(t, func(c *configuration) {
+		if hasPanic, err := expectPanic(errWrongMode, func() {
+			client := internal.NewClient(internal.VOPRF, group.Group(c.ciphersuite))
+			_ = internal.NewVerifiable(client.Core, []byte("info"))
+		}); !hasPanic {
+			t.Fatalf("expected panic with wrong group: %v", err)
+		}
+	})
+}
+
+func Test_Serde_Evaluation_TooShort(t *testing.T) {
+	errUnmarshalEvaluationShort := errors.New("decoding error: insufficient data length")
+
+	testAll(t, func(c *configuration) {
+		eval := new(voprf.Evaluation)
+		eval.SetCiphersuite(c.ciphersuite)
+
+		if err := eval.Deserialize(nil); err == nil || err.Error() != errUnmarshalEvaluationShort.Error() {
+			t.Errorf("expected error starts with %q, got %q", errUnmarshalEvaluationShort, err)
+		}
+
+		if err := eval.Deserialize([]byte("short string")); err == nil ||
+			err.Error() != errUnmarshalEvaluationShort.Error() {
+			t.Errorf("expected error starts with %q, got %q", errUnmarshalEvaluationShort, err)
+		}
+	})
+}
+
+func Test_Serde_Evaluation_TooFewEvals(t *testing.T) {
+	errUnmarshalEvaluationEvals := errors.New("decoding error: wrong encoding length")
+
+	testAll(t, func(c *configuration) {
+		goodC := c.group.NewScalar().Random().Encode()
+		goodS := c.group.NewScalar().Random().Encode()
+		goodE := c.group.Base().Encode()
+		badLengthPrefix := []byte{0, 2}
+		eval := new(voprf.Evaluation)
+		eval.SetCiphersuite(c.ciphersuite)
+		e := slices.Concat(goodC, goodS, badLengthPrefix, goodE)
+
+		if err := eval.Deserialize(e); err == nil || err.Error() != errUnmarshalEvaluationEvals.Error() {
+			t.Errorf("expected error starts with %q, got %q", errUnmarshalEvaluationEvals, err)
+		}
+	})
+}
+
+func Test_Serde_Evaluation_InvalidProofAndEncoding(t *testing.T) {
+	errC := "invalid c proof encoding:"
+	errS := "invalid s proof encoding:"
+	errE := "invalid evaluation encoding - element 0:"
+
+	testAll(t, func(c *configuration) {
+		goodC := c.group.NewScalar().Random().Encode()
+		badC := getBadScalar(t, c)
+		goodS := c.group.NewScalar().Random().Encode()
+		bads := getBadScalar(t, c)
+		goodE := c.group.Base().Encode()
+		badE := getBadElement(t, c)
+		lengthPrefix := []byte{0, 1}
+		eval := new(voprf.Evaluation)
+		eval.SetCiphersuite(c.ciphersuite)
+
+		// Test bad c proof
+		e := slices.Concat(badC, goodS, lengthPrefix, goodE)
+		if err := eval.Deserialize(e); err == nil || !strings.HasPrefix(err.Error(), errC) {
+			t.Errorf("expected error starts with %q, got %q", errC, err)
+		}
+
+		// Test bad s proof
+		e = slices.Concat(goodC, bads, lengthPrefix, goodE)
+		if err := eval.Deserialize(e); err == nil || !strings.HasPrefix(err.Error(), errS) {
+			t.Errorf("expected error starts with %q, got %q", errS, err)
+		}
+
+		// Test bad evaluation
+		e = slices.Concat(goodC, goodS, lengthPrefix, badE)
+		if err := eval.Deserialize(e); err == nil || !strings.HasPrefix(err.Error(), errE) {
+			t.Errorf("expected error starts with %q, got %q", errC, err)
+		}
+	})
+}
+
+func Test_Serde_Evaluation_UnmarshalJSON(t *testing.T) {
+	errC := "invalid c proof encoding:"
+	errS := "invalid s proof encoding:"
+	errE := "invalid evaluation encoding - element 0:"
+	jsonFMT := "{\"p\":[\"%s\",\"%s\"],\"e\":[\"%s\"]}"
+	testAll(t, func(c *configuration) {
+		goodC := base64.StdEncoding.EncodeToString(c.group.NewScalar().Random().Encode())
+		badC := base64.StdEncoding.EncodeToString(getBadScalar(t, c))
+		goodS := base64.StdEncoding.EncodeToString(c.group.NewScalar().Random().Encode())
+		bads := base64.StdEncoding.EncodeToString(getBadScalar(t, c))
+		goodE := base64.StdEncoding.EncodeToString(c.group.Base().Encode())
+		badE := base64.StdEncoding.EncodeToString(getBadElement(t, c))
+		eval := new(voprf.Evaluation)
+		eval.SetCiphersuite(c.ciphersuite)
+
+		// bad JSON
+		e := []byte(fmt.Sprintf(jsonFMT, badC, goodS, goodE))
+		e[0] = 0
+		if err := eval.UnmarshalJSON(e); err == nil {
+			t.Errorf("expected error")
+		}
+
+		// bad c proof
+		e = []byte(fmt.Sprintf(jsonFMT, badC, goodS, goodE))
+		if err := eval.UnmarshalJSON(e); err == nil || !strings.HasPrefix(err.Error(), errC) {
+			t.Errorf("expected error starts with %q, got %q", "yo", err)
+		}
+
+		// bad s proof
+		e = []byte(fmt.Sprintf(jsonFMT, goodC, bads, goodE))
+		if err := eval.UnmarshalJSON(e); err == nil || !strings.HasPrefix(err.Error(), errS) {
+			t.Errorf("expected error starts with %q, got %q", "yo", err)
+		}
+
+		// bad eval
+		e = []byte(fmt.Sprintf(jsonFMT, goodC, goodS, badE))
+		if err := eval.UnmarshalJSON(e); err == nil || !strings.HasPrefix(err.Error(), errE) {
+			t.Errorf("expected error starts with %q, got %q", "yo", err)
+		}
+	})
 }

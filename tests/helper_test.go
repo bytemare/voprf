@@ -98,7 +98,7 @@ func getBadRistrettoElement() []byte {
 }
 
 func getBadSecP256k1Scalar() []byte {
-	a := "00000000000000000000000000000000000000000000000000000000000001"
+	a := "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	decoded, _ := hex.DecodeString(a)
 
 	return decoded

@@ -25,6 +25,7 @@ import (
 var (
 	errUnmarshalEvaluationShort = errors.New("decoding error: insufficient data length")
 	errUnmarshalEvaluationEvals = errors.New("decoding error: wrong encoding length")
+	errDecodeNoCiphersuite      = errors.New("decoding error: ciphersuite not set")
 )
 
 // Evaluation is the VOPRF and POPRF servers' output, containing the verifiable proof and evaluated elements.
@@ -134,6 +135,10 @@ func decodeEvaluationsSplit(g group.Group, output []*group.Element, data [][]byt
 
 // Deserialize decodes a compact serialization of an Evaluation into e.
 func (e *Evaluation) Deserialize(data []byte) error {
+	if e.group == 0 {
+		return errDecodeNoCiphersuite
+	}
+
 	sLen := e.group.ScalarLength()
 	pLen := e.group.ElementLength()
 
@@ -199,6 +204,10 @@ func (e *Evaluation) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON decodes a JSON encoded Evaluation into e.
 func (e *Evaluation) UnmarshalJSON(data []byte) error {
+	if e.group == 0 {
+		return errDecodeNoCiphersuite
+	}
+
 	enc := struct {
 		Proof [2][]byte `json:"p"`
 		Eval  [][]byte  `json:"e"`
