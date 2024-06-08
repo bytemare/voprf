@@ -5,7 +5,9 @@
 [![codecov](https://codecov.io/gh/bytemare/voprf/branch/main/graph/badge.svg?token=5bQfB0OctA)](https://codecov.io/gh/bytemare/voprf)
 
 Package voprf implements [RFC9497](https://datatracker.ietf.org/doc/rfc9497) and provides Oblivious Pseudorandom Functions
-(OPRF) over Elliptic Curves, and fully supports the OPRF, VOPRF, and POPRF protocols.
+(OPRF) over Elliptic Curves, fully supporting the OPRF, VOPRF, and POPRF protocols.
+
+It also offers Threshold-OPRF (TOPRF) for a distributed server setting, as defined in [TOPPSS](https://eprint.iacr.org/2017/363.pdf). 
 
 ## Versioning
 

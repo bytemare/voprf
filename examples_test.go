@@ -11,8 +11,10 @@ package voprf_test
 import (
 	"encoding/hex"
 	"fmt"
+	"slices"
 
 	group "github.com/bytemare/crypto"
+	secretsharing "github.com/bytemare/secret-sharing"
 
 	oprf "github.com/bytemare/voprf"
 	"github.com/bytemare/voprf/voprf"
@@ -211,4 +213,125 @@ func Example_voprf_server() {
 	// The server encodes the evaluation, and sends it to the client.
 	_ = evaluation.Serialize()
 	// Output:
+}
+
+var (
+	toprfKeyShares       []*oprf.TOPRFKeyShare
+	toprfGlobalSecretKey *group.Scalar
+)
+
+func Example_toprf_server_setup() {
+	const (
+		totalNumberOfShares         = 5
+		minimumNumberOfParticipants = 3 // this is the threshold
+		ciphersuite                 = oprf.Ristretto255Sha512
+	)
+
+	// The private key we're going to split. Note that this example uses a centralized trusted dealer key distribution.
+	// It is recommended to use a distributed key generation algorithm between the servers.
+	toprfGlobalSecretKey = ciphersuite.Group().NewScalar().Random()
+
+	// SecretSharing shards the private key into totalNumberOfShares.
+	s, err := secretsharing.New(ciphersuite.Group(), minimumNumberOfParticipants)
+	if err != nil {
+		panic(err)
+	}
+
+	shares, _, err := s.Shard(toprfGlobalSecretKey, totalNumberOfShares)
+	if err != nil {
+		panic(err)
+	}
+
+	// Convert secretsharing KeyShares into TOPRFKeyShares.
+	toprfKeyShares = make([]*oprf.TOPRFKeyShare, totalNumberOfShares)
+	for i, ks := range shares {
+		toprfKeyShares[i] = &oprf.TOPRFKeyShare{
+			Identifier: ks.Identifier,
+			SecretKey:  ks.SecretKey,
+		}
+	}
+}
+
+// This shows how to run an OPRF in a threshold setting, where t among n servers can evaluate a client's blinded input.
+// Not that, for the example, we use a central trusted dealer to shard and distribute the key shares, but it's highly
+// recommended to use a distributed key generation.
+// There are two options for the threshold evaluation
+//  1. ThresholdEvaluate + ThresholdCombine: more efficient, replaces the server's oprf Evaluate() function, but
+//     participants must know the identities of the other participants.
+//  2. oprf Evaluate() + ThresholdProxyCombine: easier, less efficient, participants don't need to know the other
+//     participants, and servers use the unmodified oprf Evaluate().
+func Example_toprf() {
+	ciphersuite := oprf.Ristretto255Sha512
+	clientInput := []byte("client secret")
+
+	// Server setup. We need a set of n key shares. See Example_toprf_server_setup on how to do that.
+	// The combination of all shares results in toprfGlobalSecretKey.
+	Example_toprf_server_setup()
+
+	// The client starts as with the base OPRF mode.
+	client := ciphersuite.Client()
+	blinded := client.Blind(clientInput)
+
+	// The client then sends the blinded input to the servers. Among these servers, at least the threshold amount of
+	// uncompromised servers must evaluate that blinded input and respond. Let's use the following selection of servers.
+	participantServers := []*oprf.TOPRFKeyShare{
+		toprfKeyShares[2],
+		toprfKeyShares[0],
+		toprfKeyShares[3],
+	}
+
+	// All participants need to know the identifiers of the other participants
+	participantServersIdentifiers := []*group.Scalar{
+		participantServers[0].Identifier,
+		participantServers[1].Identifier,
+		participantServers[2].Identifier,
+	}
+
+	evaluations := make([]*oprf.ThresholdEvaluation, len(participantServers))
+
+	// The following shows the first option.
+	for i, serverShare := range participantServers {
+		evaluations[i] = oprf.ThresholdEvaluate(
+			ciphersuite.Group(),
+			participantServersIdentifiers,
+			serverShare,
+			blinded,
+		)
+	}
+
+	// The set of responses must now be combined. This can be done server-side or on the client.
+	combined := oprf.ThresholdCombine(evaluations)
+
+	// The client then proceeds as usual, and finalizes the protocol.
+	option1Output := client.Finalize(combined)
+
+	// Now let's see how to use the second option.
+	for i, serverShare := range participantServers {
+		evaluations[i] = &oprf.ThresholdEvaluation{
+			Identifier: serverShare.Identifier,
+			Evaluated:  oprf.Evaluate(serverShare.SecretKey, blinded),
+		}
+	}
+
+	// Recombine the distributed evaluations. This can be done server-side or on the client.
+	combined = oprf.ThresholdProxyCombine(ciphersuite.Group(), evaluations)
+
+	// The client then proceeds as usual, and finalizes the protocol.
+	option2Output := client.Finalize(combined)
+
+	// The following is to demonstrate we get the same results.
+	evaluated := oprf.Evaluate(toprfGlobalSecretKey, blinded)
+	referenceOutput := client.Finalize(evaluated)
+
+	if slices.Compare(referenceOutput, option1Output) != 0 ||
+		slices.Compare(referenceOutput, option2Output) != 0 {
+		fmt.Printf("Base OPRF and TOPRF outputs differ:\n\twant: %s\n\tgot : %s\n\tgot : %s\n",
+			hex.EncodeToString(referenceOutput),
+			hex.EncodeToString(option1Output),
+			hex.EncodeToString(option2Output))
+	} else {
+		fmt.Println("OPRF and TOPRF executions yield the same output!")
+	}
+
+	// Output:OPRF and TOPRF executions yield the same output!
 }

@@ -5,6 +5,7 @@ go 1.22.2
 require (
 	github.com/bytemare/crypto v0.6.0
 	github.com/bytemare/hash v0.3.0
+	github.com/bytemare/secret-sharing v0.1.0
 )
 
 require (
