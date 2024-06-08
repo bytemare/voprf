@@ -343,6 +343,15 @@ func Test_NewVerifiable_POPRFNotSet(t *testing.T) {
 	})
 }
 
+func Test_Serde_Evaluation_CiphersuiteNotSet(t *testing.T) {
+	errDecodeNoCiphersuite := errors.New("decoding error: ciphersuite not set")
+	eval := new(voprf.Evaluation)
+
+	if err := eval.Deserialize(nil); err == nil || err.Error() != errDecodeNoCiphersuite.Error() {
+		t.Errorf("expected error starts with %q, got %q", errDecodeNoCiphersuite, err)
+	}
+}
+
 func Test_Serde_Evaluation_TooShort(t *testing.T) {
 	errUnmarshalEvaluationShort := errors.New("decoding error: insufficient data length")
 
