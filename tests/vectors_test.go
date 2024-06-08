@@ -20,24 +20,27 @@ import (
 	group "github.com/bytemare/crypto"
 	"github.com/bytemare/hash"
 
-	"github.com/bytemare/voprf"
+	oprf "github.com/bytemare/voprf"
+	"github.com/bytemare/voprf/internal"
+	"github.com/bytemare/voprf/voprf"
 )
 
 type test struct {
-	Blind             [][]byte
-	BlindedElement    [][]byte
+	ServerPrivateKey  *group.Scalar
+	ProofC            *group.Scalar
+	NonceR            *group.Scalar
+	ProofS            *group.Scalar
+	Blind             []*group.Scalar
+	BlindedElement    []*group.Element
 	Info              []byte
-	EvaluationElement [][]byte
-	ProofC            []byte
-	NonceR            []byte
-	ProofS            []byte
+	EvaluationElement []*group.Element
 	Input             [][]byte
 	Output            [][]byte
 	Batch             int
+	oprf.Ciphersuite
 }
 
 type testVector struct {
-	ID              voprf.Ciphersuite `json:"proof,omitempty"`
 	EvaluationProof struct {
 		Proof  string `json:"proof,omitempty"`
 		Random string `json:"r,omitempty"`
@@ -49,6 +52,7 @@ type testVector struct {
 	Input             string `json:"Input"`
 	Output            string `json:"Output"`
 	Batch             int    `json:"Batch"`
+	Ciphersuite       oprf.Ciphersuite
 }
 
 func decodeBatch(nb int, in string) ([][]byte, error) {
@@ -70,44 +74,93 @@ func decodeBatch(nb int, in string) ([][]byte, error) {
 	return out, nil
 }
 
-func (t *test) Verify(suite voprf.Ciphersuite) error {
-	g := suite.Group()
+func decodeBatchScalar(g group.Group, nb int, in string) ([]*group.Scalar, error) {
+	b, err := decodeBatch(nb, in)
+	if err != nil {
+		return nil, err
+	}
 
-	for i, b := range t.Blind {
-		if err := g.NewScalar().Decode(b); err != nil {
-			return fmt.Errorf("blind %d decoding: %w", i, err)
+	res := make([]*group.Scalar, nb)
+	for i, bi := range b {
+		res[i] = g.NewScalar()
+		if err := res[i].Decode(bi); err != nil {
+			return nil, err
 		}
 	}
 
-	for i, b := range t.BlindedElement {
-		if err := g.NewElement().Decode(b); err != nil {
-			return fmt.Errorf("blinded element %d decoding: %w", i, err)
+	return res, nil
+}
+
+func decodeBatchElement(g group.Group, nb int, in string) ([]*group.Element, error) {
+	b, err := decodeBatch(nb, in)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*group.Element, nb)
+	for i, bi := range b {
+		res[i] = g.NewElement()
+		if err := res[i].Decode(bi); err != nil {
+			return nil, err
 		}
 	}
 
-	for i, b := range t.EvaluationElement {
-		if err := g.NewElement().Decode(b); err != nil {
-			return fmt.Errorf("evaluation element %d decoding: %w", i, err)
-		}
+	return res, nil
+}
+
+//func (t *test) Verify(suite oprf.Ciphersuite) error {
+//	g := suite.Group()
+//
+//	for i, b := range t.Blind {
+//		if err := g.NewScalar().Decode(b); err != nil {
+//			return fmt.Errorf("blind %d decoding: %w", i, err)
+//		}
+//	}
+//
+//	for i, b := range t.BlindedElement {
+//		if err := g.NewElement().Decode(b); err != nil {
+//			return fmt.Errorf("blinded element %d decoding: %w", i, err)
+//		}
+//	}
+//
+//	for i, b := range t.EvaluationElement {
+//		if err := g.NewElement().Decode(b); err != nil {
+//			return fmt.Errorf("evaluation element %d decoding: %w", i, err)
+//		}
+//	}
+//
+//	return nil
+//}
+
+func decodeScalar(g group.Group, s string) (*group.Scalar, error) {
+	ds, err := hex.DecodeString(s)
+	if err != nil {
+		return nil, fmt.Errorf(" ProofC decoding errored with %q", err)
 	}
 
-	return nil
+	out := g.NewScalar()
+	if err := out.Decode(ds); err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 func (tv *testVector) Decode() (*test, error) {
-	blind, err := decodeBatch(tv.Batch, tv.Blind)
+	g := tv.Ciphersuite.Group()
+	blind, err := decodeBatchScalar(g, tv.Batch, tv.Blind)
 	// blind, err := hex.DecodeString(tv.Blind)
 	if err != nil {
 		return nil, fmt.Errorf(" Blind decoding errored with %q", err)
 	}
 
-	blinded, err := decodeBatch(tv.Batch, tv.BlindedElement)
+	blinded, err := decodeBatchElement(g, tv.Batch, tv.BlindedElement)
 	// blinded, err := hex.DecodeString(tv.BlindedElement)
 	if err != nil {
 		return nil, fmt.Errorf(" BlindedElement decoding errored with %q", err)
 	}
 
-	evaluationElement, err := decodeBatch(tv.Batch, tv.EvaluationElement)
+	evaluationElement, err := decodeBatchElement(g, tv.Batch, tv.EvaluationElement)
 	if err != nil {
 		return nil, fmt.Errorf(" EvaluationElement decoding errored with %q", err)
 	}
@@ -117,23 +170,23 @@ func (tv *testVector) Decode() (*test, error) {
 		return nil, fmt.Errorf(" info decoding errored with %q", err)
 	}
 
-	var proofC, nonceR, proofS []byte
+	var proofC, nonceR, proofS *group.Scalar
 	if len(tv.EvaluationProof.Proof) != 0 {
 		pLen := len(tv.EvaluationProof.Proof)
 		c := tv.EvaluationProof.Proof[:pLen/2]
 		s := tv.EvaluationProof.Proof[pLen/2:]
 
-		proofC, err = hex.DecodeString(c)
+		proofC, err = decodeScalar(tv.Ciphersuite.Group(), c)
 		if err != nil {
 			return nil, fmt.Errorf(" ProofC decoding errored with %q", err)
 		}
 
-		proofS, err = hex.DecodeString(s)
+		proofS, err = decodeScalar(tv.Ciphersuite.Group(), s)
 		if err != nil {
 			return nil, fmt.Errorf(" ProofS decoding errored with %q", err)
 		}
 
-		nonceR, err = hex.DecodeString(tv.EvaluationProof.Random)
+		nonceR, err = decodeScalar(tv.Ciphersuite.Group(), tv.EvaluationProof.Random)
 		if err != nil {
 			return nil, fmt.Errorf(" NonceR decoding errored with %q", err)
 		}
@@ -152,6 +205,7 @@ func (tv *testVector) Decode() (*test, error) {
 	}
 
 	return &test{
+		Ciphersuite:       tv.Ciphersuite,
 		Batch:             tv.Batch,
 		Blind:             blind,
 		BlindedElement:    blinded,
@@ -168,15 +222,15 @@ func (tv *testVector) Decode() (*test, error) {
 type vectors []vector
 
 type vector struct {
-	DST         string            `json:"groupDST"`
-	Hash        string            `json:"hash"`
-	KeyInfo     string            `json:"keyInfo"`
-	SksSeed     string            `json:"seed"`
-	PkSm        string            `json:"pkSm,omitempty"`
-	SkSm        string            `json:"skSm"`
-	SuiteID     voprf.Ciphersuite `json:"identifier"`
-	TestVectors []testVector      `json:"vectors,omitempty"`
-	Mode        voprf.Mode        `json:"mode"`
+	DST         string        `json:"groupDST"`
+	Hash        string        `json:"hash"`
+	KeyInfo     string        `json:"keyInfo"`
+	SksSeed     string        `json:"seed"`
+	PkSm        string        `json:"pkSm,omitempty"`
+	SkSm        string        `json:"skSm"`
+	SuiteID     string        `json:"identifier"`
+	TestVectors []testVector  `json:"vectors,omitempty"`
+	Mode        internal.Mode `json:"mode"`
 }
 
 func hashToHash(h string) hash.Hash {
@@ -206,7 +260,7 @@ func hashToHash(h string) hash.Hash {
 
 func (v vector) checkParams(t *testing.T) {
 	// Check mode
-	if v.Mode != voprf.OPRF && v.Mode != voprf.VOPRF && v.Mode != voprf.POPRF {
+	if v.Mode != internal.OPRF && v.Mode != internal.VOPRF && v.Mode != internal.POPRF {
 		t.Fatalf("invalid mode %v", v.Mode)
 	}
 
@@ -226,75 +280,131 @@ func (v vector) checkParams(t *testing.T) {
 	//}
 }
 
-func testBlind(t *testing.T, ciphersuite voprf.Ciphersuite, client *voprf.Client, input, blind, expected, info []byte) {
-	s := ciphersuite.Group().NewScalar()
-	if err := s.Decode(blind); err != nil {
-		t.Fatal(fmt.Errorf("blind decoding to scalar in suite %v errored with %q", ciphersuite, err))
-	}
+type Client interface {
+	Blind(input []byte) *group.Element
+	BlindBatch(inputs [][]byte) []*group.Element
+	SetBlind(blind ...*group.Scalar)
+}
 
-	client.SetBlinds([]*group.Scalar{s})
+func testBlind(t *testing.T, client Client, blind *group.Scalar, input []byte, expected *group.Element) {
+	client.SetBlind(blind)
+	blinded := client.Blind(input)
 
-	blinded := client.Blind(input, info)
-
-	if !bytes.Equal(expected, blinded) {
+	if blinded.Equal(expected) != 1 {
 		t.Fatal("unexpected blinded output")
 	}
 }
 
-func testBlindBatchWithBlinds(t *testing.T, client *voprf.Client, inputs, blinds, outputs [][]byte, info []byte) {
-	blinded, err := client.BlindBatchWithBlinds(blinds, inputs, info)
-	if err != nil {
-		t.Fatal(err)
+func testBlindBatch(t *testing.T, client Client, blinds []*group.Scalar, inputs [][]byte, expected []*group.Element) {
+	client.SetBlind(blinds...)
+
+	blinded := client.BlindBatch(inputs)
+	if len(blinded) != len(expected) {
+		t.Fatal("different number of blinded elements than expected")
 	}
 
-	for i, o := range outputs {
-		if !bytes.Equal(o, blinded[i]) {
-			t.Fatal("unexpected blinded output")
+	for i, b := range expected {
+		if b.Equal(expected[i]) != 1 {
+			t.Fatalf("unexpected blinded output %d", i)
 		}
 	}
 }
 
-func testOPRFServerEvaluation(t *testing.T, server *voprf.Server, test *test) *voprf.Evaluation {
-	var ev *voprf.Evaluation
-	var err error
+func testOPRFEvaluation(t *testing.T, test *test) {
+	if len(test.BlindedElement) > 1 {
+		ev := oprf.Evaluate(test.ServerPrivateKey, test.BlindedElement[0])
 
-	if test.Batch == 1 {
-		ev, err = server.EvaluateWithRandom(test.BlindedElement[0], test.NonceR, test.Info)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !bytes.Equal(test.EvaluationElement[0], ev.Elements[0]) {
+		if test.EvaluationElement[0].Equal(ev) != 1 {
 			t.Fatal("unexpected evaluation element")
 		}
 	} else {
-		ev, err = server.EvaluateBatchWithRandom(test.BlindedElement, test.NonceR, test.Info)
-		if err != nil {
-			t.Fatal(err)
+		ev := oprf.EvaluateBatch(test.ServerPrivateKey, test.BlindedElement)
+
+		if len(ev) != len(test.BlindedElement) {
+			t.Fatal("unequal length")
 		}
 
-		for i, e := range test.EvaluationElement {
-			if !bytes.Equal(e, ev.Elements[i]) {
-				t.Fatal("unexpected evaluation elements")
+		for i, e := range ev {
+			if test.EvaluationElement[i].Equal(e) != 1 {
+				t.Fatal("unexpected evaluation element")
 			}
 		}
 	}
-
-	return ev
 }
 
-func testOPRFClientFinalize(t *testing.T, client *voprf.Client, ev *voprf.Evaluation, test *test) {
+func testOPRFFinalize(t *testing.T, client *oprf.Client, test *test) {
 	if test.Batch == 1 {
-		output, err := client.Finalize(ev, test.Info)
-		if err != nil {
-			t.Fatal(err)
-		}
+		output := client.Finalize(test.EvaluationElement[0])
 
 		if !bytes.Equal(test.Output[0], output) {
 			t.Fatal("finalize() output is not valid.")
 		}
 	} else {
-		output, err := client.FinalizeBatch(ev, test.Info)
+		output, err := client.FinalizeBatch(test.EvaluationElement)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for i, o := range test.Output {
+			if !bytes.Equal(o, output[i]) {
+				t.Fatal("finalizeBatch() output is not valid.")
+			}
+		}
+	}
+}
+
+func testVPOPRFEvaluation(t *testing.T, server *voprf.Server, test *test) {
+	var evaluation *voprf.Evaluation
+	if test.Batch == 1 {
+		evaluation = server.Evaluate(test.BlindedElement[0], test.NonceR)
+
+		if evaluation.Evaluations[0].Equal(test.EvaluationElement[0]) != 1 {
+			t.Fatalf(
+				"unexpected evaluation element:\n\twant: %v\n\tgot : %v\n",
+				hex.EncodeToString(test.EvaluationElement[0].Encode()),
+				hex.EncodeToString(evaluation.Evaluations[0].Encode()),
+			)
+		}
+	} else {
+		evaluation = server.EvaluateBatch(test.BlindedElement, test.NonceR)
+
+		for i, e := range test.EvaluationElement {
+			if e.Equal(evaluation.Evaluations[i]) != 1 {
+				t.Fatal("unexpected evaluation elements")
+			}
+		}
+	}
+
+	if evaluation.Proof[0].Equal(test.ProofC) != 1 {
+		t.Fatal("unexpected proof c")
+	}
+
+	if evaluation.Proof[1].Equal(test.ProofS) != 1 {
+		t.Fatal("unexpected proof s")
+	}
+}
+
+func testVPOPRFFinalize(t *testing.T, client *voprf.Client, test *test) {
+	evaluation := &voprf.Evaluation{
+		Proof:       [2]*group.Scalar{test.ProofC, test.ProofS},
+		Evaluations: test.EvaluationElement,
+	}
+
+	if test.Batch == 1 {
+		output, err := client.Finalize(evaluation)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !bytes.Equal(test.Output[0], output) {
+			t.Fatalf(
+				"finalize() output is not valid.\n\twant: %s\n\tgot : %s\n",
+				hex.EncodeToString(test.Output[0]),
+				hex.EncodeToString(output),
+			)
+		}
+	} else {
+		output, err := client.FinalizeBatch(evaluation)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -309,59 +419,68 @@ func testOPRFClientFinalize(t *testing.T, client *voprf.Client, ev *voprf.Evalua
 
 func testOPRF(
 	t *testing.T,
-	ciphersuite voprf.Ciphersuite,
-	mode voprf.Mode,
-	client *voprf.Client,
-	server *voprf.Server,
 	test *test,
 ) {
+	client := test.Ciphersuite.Client()
+
 	// OPRFClient Blinding
 	if test.Batch == 1 {
-		testBlind(t, ciphersuite, client, test.Input[0], test.Blind[0], test.BlindedElement[0], test.Info)
+		testBlind(t, client, test.Blind[0], test.Input[0], test.BlindedElement[0])
 	} else {
-		testBlindBatchWithBlinds(t, client, test.Input, test.Blind, test.BlindedElement, test.Info)
+		testBlindBatch(t, client, test.Blind, test.Input, test.BlindedElement)
 	}
 
 	// OPRFServer evaluating
-	ev := testOPRFServerEvaluation(t, server, test)
-
-	// Verify proofs
-	if mode == voprf.VOPRF || mode == voprf.POPRF {
-		if !bytes.Equal(test.ProofC, ev.ProofC) {
-			t.Errorf(
-				"unexpected c proof\n\twant %v\n\tgot  %v",
-				hex.EncodeToString(test.ProofC),
-				hex.EncodeToString(ev.ProofC),
-			)
-		}
-
-		if !bytes.Equal(test.ProofS, ev.ProofS) {
-			t.Errorf(
-				"unexpected s proof\n\twant %v\n\tgot  %v",
-				hex.EncodeToString(test.ProofS),
-				hex.EncodeToString(ev.ProofS),
-			)
-		}
-	}
+	testOPRFEvaluation(t, test)
 
 	// OPRFClient finalize
-	testOPRFClientFinalize(t, client, ev, test)
+	testOPRFFinalize(t, client, test)
+}
+
+func testVPOPRF(
+	t *testing.T,
+	test *test,
+) {
+	sk, pk := test.ServerPrivateKey, test.Ciphersuite.Group().Base().Multiply(test.ServerPrivateKey)
+	server := voprf.NewServer(test.Ciphersuite, test.Info...)
+	if err := server.SetKeyPair(sk, pk); err != nil {
+		t.Fatal(err)
+	}
+
+	client, err := voprf.NewClient(test.Ciphersuite, pk, test.Info...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// OPRFClient Blinding
+	if test.Batch == 1 {
+		testBlind(t, client, test.Blind[0], test.Input[0], test.BlindedElement[0])
+	} else {
+		testBlindBatch(t, client, test.Blind, test.Input, test.BlindedElement)
+	}
+
+	// OPRFServer evaluating
+	testVPOPRFEvaluation(t, server, test)
+
+	// OPRFClient finalize
+	testVPOPRFFinalize(t, client, test)
 }
 
 func (v vector) testVector(
 	t *testing.T,
-	tv *testVector,
-	suite voprf.Ciphersuite,
-	mode voprf.Mode,
-	privKey, serverPublicKey, expectedDST []byte,
+	test *test,
 ) {
-	test, err := tv.Decode()
+	expectedDST, err := hex.DecodeString(v.DST)
 	if err != nil {
-		t.Fatal(fmt.Sprintf("batches : %v Failed %v\n", tv.Batch, err))
+		t.Fatalf("hex decoding errored with %q", err)
 	}
 
-	if err := test.Verify(suite); err != nil {
-		t.Fatal(err)
+	if string(
+		expectedDST,
+	) != string(
+		internal.Dst(hash2groupDSTPrefix, internal.ContextString(v.Mode, test.Ciphersuite.Name())),
+	) {
+		t.Fatal("GroupDST output is not valid.")
 	}
 
 	// Test DeriveKeyPair
@@ -375,72 +494,67 @@ func (v vector) testVector(
 		t.Fatal(err)
 	}
 
-	sks, _ := deriveKeyPair(seed, keyInfo, mode, suite)
-	// log.Printf("sks %v", hex.EncodeToString(serializeScalar(sks, scalarLength(o.id))))
+	privKey, err := hex.DecodeString(v.SkSm)
+	if err != nil {
+		t.Fatalf("private key decoding errored with %q\nfor sksm %v\n", err, v.SkSm)
+	}
+
+	var sks *group.Scalar
+
+	if v.Mode == internal.OPRF {
+		sks, _ = oprf.DeriveKeyPair(test.Ciphersuite, seed, keyInfo)
+	} else {
+		server := voprf.NewServer(test.Ciphersuite, test.Info...)
+		server.DeriveKeyPair(seed, keyInfo)
+		sks, _ = server.KeyPair()
+	}
+
 	if !bytes.Equal(sks.Encode(), privKey) {
 		t.Fatalf("DeriveKeyPair yields unexpected output\n\twant: %v\n\tgot : %v", privKey, sks.Encode())
 	}
 
-	// Set up a new server.
-	server, err := suite.Server(mode, privKey)
-	if err != nil {
-		t.Fatalf(
-			"failed on setting up server %q\nvector value (%d) %v\ndecoded (%d) %v\n",
-			err,
-			len(v.SkSm),
-			v.SkSm,
-			len(privKey),
-			privKey,
-		)
-	}
-
-	if string(expectedDST) != string(dst(hash2groupDSTPrefix, contextString(mode, suite))) {
-		t.Fatal("GroupDST output is not valid.")
-	}
-
-	client, err := suite.Client(mode, serverPublicKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if string(expectedDST) != string(dst(hash2groupDSTPrefix, contextString(mode, suite))) {
-		t.Fatal("GroupDST output is not valid.")
-	}
+	test.ServerPrivateKey = sks
 
 	// test protocol execution
-	testOPRF(t, v.SuiteID, mode, client, server, test)
+	if v.Mode == internal.OPRF {
+		testOPRF(t, test)
+	} else {
+		testVPOPRF(t, test)
+	}
+}
+
+func suiteToCiphersuite(t *testing.T, s string) oprf.Ciphersuite {
+	switch s {
+	case "ristretto255-SHA512":
+		return oprf.Ristretto255Sha512
+	case "decaf448-SHAKE256":
+		t.Fatal("decaf not supported")
+	case "P256-SHA256":
+		return oprf.P256Sha256
+	case "P384-SHA384":
+		return oprf.P384Sha384
+	case "P521-SHA512":
+		return oprf.P521Sha512
+	}
+
+	t.Fatalf("unknown suite: %s", s)
+	return 0
 }
 
 func (v vector) test(t *testing.T) {
 	// Check mode, hash function, and cipher suite
 	v.checkParams(t)
 
-	// Get mode, hash function, and cipher suite
-	mode := v.Mode
-	suite := v.SuiteID
-
-	privKey, err := hex.DecodeString(v.SkSm)
-	if err != nil {
-		t.Fatalf("private key decoding errored with %q\nfor sksm %v\n", err, v.SkSm)
-	}
-
-	var serverPublicKey []byte
-	if mode == voprf.VOPRF || mode == voprf.POPRF {
-		pksm, err := hex.DecodeString(v.PkSm)
-		if err != nil {
-			t.Fatalf("error decoding public key %v", err)
-		}
-		serverPublicKey = pksm
-	}
-
-	expectedDST, err := hex.DecodeString(v.DST)
-	if err != nil {
-		t.Fatalf("hex decoding errored with %q", err)
-	}
-
 	for i, tv := range v.TestVectors {
 		t.Run(fmt.Sprintf("Vector %d", i), func(t *testing.T) {
-			v.testVector(t, &tv, suite, mode, privKey, serverPublicKey, expectedDST)
+			tv.Ciphersuite = suiteToCiphersuite(t, v.SuiteID)
+
+			test, err := tv.Decode()
+			if err != nil {
+				t.Fatal(fmt.Sprintf("batches : %v Failed %v\n", tv.Batch, err))
+			}
+
+			v.testVector(t, test)
 		})
 	}
 }
@@ -473,6 +587,6 @@ func TestVOPRFVectors(t *testing.T) {
 			continue
 		}
 
-		t.Run(string(tv.Mode)+" - "+string(tv.SuiteID), tv.test)
+		t.Run(string(tv.Mode)+" - "+tv.SuiteID, tv.test)
 	}
 }

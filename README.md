@@ -4,8 +4,8 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/bytemare/voprf.svg)](https://pkg.go.dev/github.com/bytemare/voprf)
 [![codecov](https://codecov.io/gh/bytemare/voprf/branch/main/graph/badge.svg?token=5bQfB0OctA)](https://codecov.io/gh/bytemare/voprf)
 
-Package voprf provides abstracted access to Oblivious Pseudorandom Functions (OPRF) over Elliptic Curves as specified in
-[RFC9497](https://datatracker.ietf.org/doc/rfc9497) and fully supports the OPRF, VOPRF, and POPRF protocols.
+Package voprf implements [RFC9497](https://datatracker.ietf.org/doc/rfc9497) and provides Oblivious Pseudorandom Functions
+(OPRF) over Elliptic Curves, and fully supports the OPRF, VOPRF, and POPRF protocols.
 
 ## Versioning
 
