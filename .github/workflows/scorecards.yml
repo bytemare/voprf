@@ -22,7 +22,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: step-security/harden-runner@6d3c2fe731c8f225990c8018cb71c337c0d9dfcd
+      - uses: step-security/harden-runner@29e9ae12297382bde04e940b27e0638029f9f3cd
         with:
           disable-sudo: true
           egress-policy: block
@@ -69,6 +69,6 @@ jobs:
 
       # required for Code scanning alerts
       - name: "Upload SARIF results to code scanning"
-        uses: github/codeql-action/upload-sarif@7adf9ac915317792cbeaf8d9c9fa80f2dbacfd48
+        uses: github/codeql-action/upload-sarif@be825d5eefdb0c498fa30c4b57ec0690b4d0cecb
         with:
           sarif_file: results.sarif
