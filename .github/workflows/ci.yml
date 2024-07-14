@@ -106,7 +106,7 @@ jobs:
 
       # Codecov
       - name: Codecov
-        uses: codecov/codecov-action@543b309c018563d55ed130e7a261ec4c9dac7a10
+        uses: codecov/codecov-action@e1b169f2838f7e502ad9f222fbc6ed3e2594e003
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
@@ -114,7 +114,7 @@ jobs:
 
       # Sonar
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@e44258b109568baa0df60ed515909fc6c72cba92
+        uses: SonarSource/sonarcloud-github-action@b7cc8bf2004f4a9ef190137d8831630e9ae5d2e7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
