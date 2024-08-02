@@ -24,7 +24,7 @@ jobs:
             raw.githubusercontent.com:443
 
       - name: Checkout repo
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+        uses: actions/checkout@9a9194f87191a7e9055e3e9b95b8cfb13023bb08
         with:
           fetch-depth: 0
       - name: Setup Go
@@ -34,7 +34,7 @@ jobs:
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@9ec89731c3231147ae014c73448ce9a7240d661b
+        uses: golangci/golangci-lint-action@aaa42aa0628b4ae2578232a66b541047968fac86
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
@@ -59,7 +59,7 @@ jobs:
             sum.golang.org:443
 
       - name: Checkout repo
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+        uses: actions/checkout@9a9194f87191a7e9055e3e9b95b8cfb13023bb08
         with:
           fetch-depth: 0
       - name: Setup Go
@@ -92,7 +92,7 @@ jobs:
             storage.googleapis.com:443
 
       - name: Checkout repo
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+        uses: actions/checkout@9a9194f87191a7e9055e3e9b95b8cfb13023bb08
         with:
           fetch-depth: 0
       - name: Setup Go
@@ -106,7 +106,7 @@ jobs:
 
       # Codecov
       - name: Codecov
-        uses: codecov/codecov-action@6f75c27045d2e068673192a87c7e9c3eebf59b2a
+        uses: codecov/codecov-action@922d8d7b314a529f2be903c1e79ee8283c492863
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
