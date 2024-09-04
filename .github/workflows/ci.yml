@@ -24,7 +24,7 @@ jobs:
             raw.githubusercontent.com:443
 
       - name: Checkout repo
-        uses: actions/checkout@9a9194f87191a7e9055e3e9b95b8cfb13023bb08
+        uses: actions/checkout@2d7d9f7ff5b310f983d059b68785b3c74d8b8edd
         with:
           fetch-depth: 0
       - name: Setup Go
@@ -34,7 +34,7 @@ jobs:
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@cb36b7b064e48e277c8873c559e758f67ec455b1
+        uses: golangci/golangci-lint-action@68de804037d6beb4bec814041c98865cb188f3db
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
@@ -59,7 +59,7 @@ jobs:
             sum.golang.org:443
 
       - name: Checkout repo
-        uses: actions/checkout@9a9194f87191a7e9055e3e9b95b8cfb13023bb08
+        uses: actions/checkout@2d7d9f7ff5b310f983d059b68785b3c74d8b8edd
         with:
           fetch-depth: 0
       - name: Setup Go
@@ -92,7 +92,7 @@ jobs:
             storage.googleapis.com:443
 
       - name: Checkout repo
-        uses: actions/checkout@9a9194f87191a7e9055e3e9b95b8cfb13023bb08
+        uses: actions/checkout@2d7d9f7ff5b310f983d059b68785b3c74d8b8edd
         with:
           fetch-depth: 0
       - name: Setup Go
