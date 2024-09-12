@@ -12,7 +12,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@951b48540b429070694bc8abd82fd6901eb123ca
+      - uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7
         with:
           disable-sudo: true
           egress-policy: block
@@ -28,13 +28,13 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@b26d40294f8ad76fcc90b915dac85892322fe62d
+        uses: actions/setup-go@df1a11710ed378b187f40c71eb3d6c08d82e7108
         with:
           go-version-file: ./go.mod
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@68de804037d6beb4bec814041c98865cb188f3db
+        uses: golangci/golangci-lint-action@33f56cc1efa04e8bdc166cd6ee9f060dad4e65af
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
@@ -48,7 +48,7 @@ jobs:
       matrix:
         go: [ '1.22', '1.21' ]
     steps:
-      - uses: step-security/harden-runner@951b48540b429070694bc8abd82fd6901eb123ca
+      - uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7
         with:
           disable-sudo: true
           egress-policy: block
@@ -63,7 +63,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@b26d40294f8ad76fcc90b915dac85892322fe62d
+        uses: actions/setup-go@df1a11710ed378b187f40c71eb3d6c08d82e7108
         with:
           go-version: ${{ matrix.go }}
 
@@ -75,7 +75,7 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@951b48540b429070694bc8abd82fd6901eb123ca
+      - uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7
         with:
           disable-sudo: true
           egress-policy: block
@@ -96,7 +96,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@b26d40294f8ad76fcc90b915dac85892322fe62d
+        uses: actions/setup-go@df1a11710ed378b187f40c71eb3d6c08d82e7108
         with:
           go-version-file: ./go.mod
 
@@ -106,7 +106,7 @@ jobs:
 
       # Codecov
       - name: Codecov
-        uses: codecov/codecov-action@8bacbcdafc25d23d7ccbf06e9aaf78c95a290f21
+        uses: codecov/codecov-action@4beef3e59f78b5d086257b65d6e2ce7c33f8d646
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
