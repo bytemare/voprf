@@ -24,17 +24,17 @@ jobs:
             raw.githubusercontent.com:443
 
       - name: Checkout repo
-        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@df1a11710ed378b187f40c71eb3d6c08d82e7108
+        uses: actions/setup-go@d60b41a563a30eac31c3ec623e6ff0b3f16e1a06
         with:
           go-version-file: ./go.mod
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@06c3f3a5515ecb115aa8e1a90cbb3d4b3001936c
+        uses: golangci/golangci-lint-action@ebae5cee81ffe470becee7802f187bbbcd08e8c4
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
@@ -59,11 +59,11 @@ jobs:
             sum.golang.org:443
 
       - name: Checkout repo
-        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@df1a11710ed378b187f40c71eb3d6c08d82e7108
+        uses: actions/setup-go@d60b41a563a30eac31c3ec623e6ff0b3f16e1a06
         with:
           go-version: ${{ matrix.go }}
 
@@ -92,11 +92,11 @@ jobs:
             storage.googleapis.com:443
 
       - name: Checkout repo
-        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@df1a11710ed378b187f40c71eb3d6c08d82e7108
+        uses: actions/setup-go@d60b41a563a30eac31c3ec623e6ff0b3f16e1a06
         with:
           go-version-file: ./go.mod
 
@@ -106,7 +106,7 @@ jobs:
 
       # Codecov
       - name: Codecov
-        uses: codecov/codecov-action@2296b6ba9eee85301a5ef2c7c2cdc738faf1f939
+        uses: codecov/codecov-action@543c3d42fc76502218ecdadc04e65dbd2640a67a
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
