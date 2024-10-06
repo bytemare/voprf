@@ -24,7 +24,7 @@ jobs:
             raw.githubusercontent.com:443
 
       - name: Checkout repo
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938
+        uses: actions/checkout@6b42224f41ee5dfe5395e27c8b2746f1f9955030
         with:
           fetch-depth: 0
       - name: Setup Go
@@ -34,7 +34,7 @@ jobs:
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@ebae5cee81ffe470becee7802f187bbbcd08e8c4
+        uses: golangci/golangci-lint-action@971e284b6050e8a5849b72094c50ab08da042db8
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
@@ -59,7 +59,7 @@ jobs:
             sum.golang.org:443
 
       - name: Checkout repo
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938
+        uses: actions/checkout@6b42224f41ee5dfe5395e27c8b2746f1f9955030
         with:
           fetch-depth: 0
       - name: Setup Go
@@ -92,7 +92,7 @@ jobs:
             storage.googleapis.com:443
 
       - name: Checkout repo
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938
+        uses: actions/checkout@6b42224f41ee5dfe5395e27c8b2746f1f9955030
         with:
           fetch-depth: 0
       - name: Setup Go
@@ -106,7 +106,7 @@ jobs:
 
       # Codecov
       - name: Codecov
-        uses: codecov/codecov-action@543c3d42fc76502218ecdadc04e65dbd2640a67a
+        uses: codecov/codecov-action@68708a9f7a6b6b5fe33673f782f93725c5eff3c6
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
@@ -114,7 +114,7 @@ jobs:
 
       # Sonar
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@eb211723266fe8e83102bac7361f0a05c3ac1d1b
+        uses: SonarSource/sonarcloud-github-action@383f7e52eae3ab0510c3cb0e7d9d150bbaeab838
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
