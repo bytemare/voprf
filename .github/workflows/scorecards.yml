@@ -38,7 +38,7 @@ jobs:
             www.bestpractices.dev:443
 
       - name: "Checkout code"
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871
+        uses: actions/checkout@163217dfcd28294438ea1c1c149cfaf66eec283e
         with:
           persist-credentials: false
 
@@ -69,6 +69,6 @@ jobs:
 
       # required for Code scanning alerts
       - name: "Upload SARIF results to code scanning"
-        uses: github/codeql-action/upload-sarif@ea2cd92c21b192add69983116b8b3222b09da33b
+        uses: github/codeql-action/upload-sarif@af56b044b5d41c317aef5d19920b3183cb4fbbec
         with:
           sarif_file: results.sarif
