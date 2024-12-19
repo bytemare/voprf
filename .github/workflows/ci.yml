@@ -34,7 +34,7 @@ jobs:
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@774c35bcccffb734694af9e921f12f57d882ef74
+        uses: golangci/golangci-lint-action@9937fdf7189f2958a2dc9f6d585e5d65e3326d20
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
@@ -106,7 +106,7 @@ jobs:
 
       # Codecov
       - name: Codecov
-        uses: codecov/codecov-action@5c93f7ab87f1aa9b956609bbc4b50a6e747fe2fb
+        uses: codecov/codecov-action@1e68e06f1dbfde0e4cefc87efeba9e4643565303
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
