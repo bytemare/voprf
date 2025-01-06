@@ -34,7 +34,7 @@ jobs:
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@2f13b8027d5e60ac6e32b086a0dc4d2ae4cb3f77
+        uses: golangci/golangci-lint-action@58eda26a511c265ee35b3ee4b101fb8adfd76480
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
