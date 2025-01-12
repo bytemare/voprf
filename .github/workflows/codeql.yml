@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: step-security/harden-runner@0080882f6c36860b6ba35c610c98ce87d4e2f26f
+      - uses: step-security/harden-runner@c95a14d0e5bab51a9f56296a4eb0e416910cd350
         with:
           disable-sudo: true
           egress-policy: block
@@ -35,12 +35,12 @@ jobs:
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@3407610120cd5656b6fc71991415cb50748b9489
+        uses: github/codeql-action/init@db7177a1c66bea89f5e7ce32d0ea48bea4a0d460
         with:
           languages: go
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@3407610120cd5656b6fc71991415cb50748b9489
+        uses: github/codeql-action/autobuild@db7177a1c66bea89f5e7ce32d0ea48bea4a0d460
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@3407610120cd5656b6fc71991415cb50748b9489
+        uses: github/codeql-action/analyze@db7177a1c66bea89f5e7ce32d0ea48bea4a0d460
