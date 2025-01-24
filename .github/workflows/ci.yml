@@ -12,7 +12,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@c95a14d0e5bab51a9f56296a4eb0e416910cd350
+      - uses: step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e
         with:
           disable-sudo: true
           egress-policy: block
@@ -24,17 +24,17 @@ jobs:
             raw.githubusercontent.com:443
 
       - name: Checkout repo
-        uses: actions/checkout@cbb722410c2e876e24abbe8de2cc27693e501dcb
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a
+        uses: actions/setup-go@5a083d0e9a84784eb32078397cf5459adecb4c40
         with:
           go-version-file: ./go.mod
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@58eda26a511c265ee35b3ee4b101fb8adfd76480
+        uses: golangci/golangci-lint-action@7ec71f69b140deafe2ba0c477db8aacd59cdfe55
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
@@ -48,7 +48,7 @@ jobs:
       matrix:
         go: [ '1.22', '1.21' ]
     steps:
-      - uses: step-security/harden-runner@c95a14d0e5bab51a9f56296a4eb0e416910cd350
+      - uses: step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e
         with:
           disable-sudo: true
           egress-policy: block
@@ -59,11 +59,11 @@ jobs:
             sum.golang.org:443
 
       - name: Checkout repo
-        uses: actions/checkout@cbb722410c2e876e24abbe8de2cc27693e501dcb
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a
+        uses: actions/setup-go@5a083d0e9a84784eb32078397cf5459adecb4c40
         with:
           go-version: ${{ matrix.go }}
 
@@ -75,7 +75,7 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@c95a14d0e5bab51a9f56296a4eb0e416910cd350
+      - uses: step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e
         with:
           disable-sudo: true
           egress-policy: block
@@ -92,11 +92,11 @@ jobs:
             storage.googleapis.com:443
 
       - name: Checkout repo
-        uses: actions/checkout@cbb722410c2e876e24abbe8de2cc27693e501dcb
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a
+        uses: actions/setup-go@5a083d0e9a84784eb32078397cf5459adecb4c40
         with:
           go-version-file: ./go.mod
 
@@ -106,7 +106,7 @@ jobs:
 
       # Codecov
       - name: Codecov
-        uses: codecov/codecov-action@adfacf2d276b158264c48ff298490fbdf13e4fb6
+        uses: codecov/codecov-action@13ce06bfc6bbe3ecf90edbbf1bc32fe5978ca1d3
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
