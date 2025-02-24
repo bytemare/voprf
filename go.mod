@@ -1,10 +1,12 @@
 module github.com/bytemare/voprf
 
-go 1.22.2
+go 1.24
+
+toolchain go1.24.0
 
 require (
 	github.com/bytemare/crypto v0.6.0
-	github.com/bytemare/hash v0.3.0
+	github.com/bytemare/hash v0.5.0
 )
 
 require (
@@ -13,6 +15,6 @@ require (
 	github.com/bytemare/hash2curve v0.3.0 // indirect
 	github.com/bytemare/secp256k1 v0.1.2 // indirect
 	github.com/gtank/ristretto255 v0.1.2 // indirect
-	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/sys v0.20.0 // indirect
+	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
 )
