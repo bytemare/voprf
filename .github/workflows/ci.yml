@@ -12,7 +12,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@a22641e386edd6104ead99416bac876f4d9b806d
+      - uses: step-security/harden-runner@0f3c98aa98444b3a4e8eb1b5ecc20a7ea24d932d
         with:
           disable-sudo: true
           egress-policy: block
@@ -34,7 +34,7 @@ jobs:
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@456fc0f7358ebf6cdd48ca0d2d56e88a6c7aa077
+        uses: golangci/golangci-lint-action@7b561e5ab6624d4582c82a4315e0d65ec7a6ad00
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
@@ -48,7 +48,7 @@ jobs:
       matrix:
         go: [ '1.22', '1.21' ]
     steps:
-      - uses: step-security/harden-runner@a22641e386edd6104ead99416bac876f4d9b806d
+      - uses: step-security/harden-runner@0f3c98aa98444b3a4e8eb1b5ecc20a7ea24d932d
         with:
           disable-sudo: true
           egress-policy: block
@@ -75,7 +75,7 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@a22641e386edd6104ead99416bac876f4d9b806d
+      - uses: step-security/harden-runner@0f3c98aa98444b3a4e8eb1b5ecc20a7ea24d932d
         with:
           disable-sudo: true
           egress-policy: block
@@ -106,7 +106,7 @@ jobs:
 
       # Codecov
       - name: Codecov
-        uses: codecov/codecov-action@1fecca8ce3a22284e70b371077fb5219f54095b8
+        uses: codecov/codecov-action@2488e996fab00fd35d4bfea876db7531c9fa1ea3
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
