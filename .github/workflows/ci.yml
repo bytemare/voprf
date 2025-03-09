@@ -12,7 +12,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@18fe9c66a7c14dce4adc80e7d728e33a541f67d9
+      - uses: step-security/harden-runner@6ec6af7d622602bd852df48848f3cae95c760a48
         with:
           disable-sudo: true
           egress-policy: block
@@ -34,7 +34,7 @@ jobs:
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@7b561e5ab6624d4582c82a4315e0d65ec7a6ad00
+        uses: golangci/golangci-lint-action@d8648ac2edec95c7927c492e5cfb10276c5ea71d
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
@@ -48,7 +48,7 @@ jobs:
       matrix:
         go: [ '1.22', '1.21' ]
     steps:
-      - uses: step-security/harden-runner@18fe9c66a7c14dce4adc80e7d728e33a541f67d9
+      - uses: step-security/harden-runner@6ec6af7d622602bd852df48848f3cae95c760a48
         with:
           disable-sudo: true
           egress-policy: block
@@ -75,7 +75,7 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@18fe9c66a7c14dce4adc80e7d728e33a541f67d9
+      - uses: step-security/harden-runner@6ec6af7d622602bd852df48848f3cae95c760a48
         with:
           disable-sudo: true
           egress-policy: block
