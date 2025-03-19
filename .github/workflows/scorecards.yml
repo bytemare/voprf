@@ -22,7 +22,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: step-security/harden-runner@8a09271fed8277ab7fb02dbb5917c8d0e78323b4
+      - uses: step-security/harden-runner@f054d811b5b89fde2f954d54dc8622ec3aaab9ab
         with:
           disable-sudo: true
           egress-policy: block
@@ -43,7 +43,7 @@ jobs:
           persist-credentials: false
 
       - name: "Run analysis"
-        uses: ossf/scorecard-action@3d5dd5daeb8a67e5461eee8aa7c5e2ab5132dc36
+        uses: ossf/scorecard-action@0996de34f094a4ac9ff679ec4993bdd4feff3a1f
         with:
           results_file: results.sarif
           results_format: sarif
@@ -61,7 +61,7 @@ jobs:
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
       - name: "Upload artifact"
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: SARIF file
           path: results.sarif
@@ -69,6 +69,6 @@ jobs:
 
       # required for Code scanning alerts
       - name: "Upload SARIF results to code scanning"
-        uses: github/codeql-action/upload-sarif@70df9def86d22bf0ea4e7f8b956e7b92e7c1ea22
+        uses: github/codeql-action/upload-sarif@c50c157cc388ea631f085f4e95e948f51cdc742a
         with:
           sarif_file: results.sarif
