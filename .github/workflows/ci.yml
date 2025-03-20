@@ -12,7 +12,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@8a09271fed8277ab7fb02dbb5917c8d0e78323b4
+      - uses: step-security/harden-runner@f054d811b5b89fde2f954d54dc8622ec3aaab9ab
         with:
           disable-sudo: true
           egress-policy: block
@@ -28,13 +28,13 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@c4c114188661c0fa735e5b938764519fc6e8efa9
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b
         with:
           go-version-file: ./go.mod
 
       # Linting
       - name: Linting
-        uses: golangci/golangci-lint-action@4696ba8babb6127d732c3c6dde519db15edab9ea
+        uses: golangci/golangci-lint-action@9938e103f8065deff3f289d9e975270d5541b866
         with:
           version: latest
           args: --config=./.github/.golangci.yml ./...
@@ -48,7 +48,7 @@ jobs:
       matrix:
         go: [ '1.22', '1.21' ]
     steps:
-      - uses: step-security/harden-runner@8a09271fed8277ab7fb02dbb5917c8d0e78323b4
+      - uses: step-security/harden-runner@f054d811b5b89fde2f954d54dc8622ec3aaab9ab
         with:
           disable-sudo: true
           egress-policy: block
@@ -63,7 +63,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@c4c114188661c0fa735e5b938764519fc6e8efa9
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b
         with:
           go-version: ${{ matrix.go }}
 
@@ -75,7 +75,7 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@8a09271fed8277ab7fb02dbb5917c8d0e78323b4
+      - uses: step-security/harden-runner@f054d811b5b89fde2f954d54dc8622ec3aaab9ab
         with:
           disable-sudo: true
           egress-policy: block
@@ -96,7 +96,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@c4c114188661c0fa735e5b938764519fc6e8efa9
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b
         with:
           go-version-file: ./go.mod
 
