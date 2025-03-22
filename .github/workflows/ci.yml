@@ -12,7 +12,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@f054d811b5b89fde2f954d54dc8622ec3aaab9ab
+      - uses: step-security/harden-runner@b131ca5ebfca4930fe6d4a3e82d1e386b4873c94
         with:
           disable-sudo: true
           egress-policy: block
@@ -48,7 +48,7 @@ jobs:
       matrix:
         go: [ '1.22', '1.21' ]
     steps:
-      - uses: step-security/harden-runner@f054d811b5b89fde2f954d54dc8622ec3aaab9ab
+      - uses: step-security/harden-runner@b131ca5ebfca4930fe6d4a3e82d1e386b4873c94
         with:
           disable-sudo: true
           egress-policy: block
@@ -75,7 +75,7 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: step-security/harden-runner@f054d811b5b89fde2f954d54dc8622ec3aaab9ab
+      - uses: step-security/harden-runner@b131ca5ebfca4930fe6d4a3e82d1e386b4873c94
         with:
           disable-sudo: true
           egress-policy: block
