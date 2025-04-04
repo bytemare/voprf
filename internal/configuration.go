@@ -17,7 +17,7 @@ import (
 	"github.com/bytemare/hash"
 )
 
-// Mode distinguishes between the OPRF base mode and the VOPRF mode.
+// Mode distinguishes execution between the OPRF base, VOPRF, and POPRF modes.
 type Mode byte
 
 const (
@@ -38,14 +38,10 @@ const (
 	hash2groupDSTPrefix  = "HashToGroup-"
 	hash2scalarDSTPrefix = "HashToScalar-"
 	dstSeed              = "Seed-"
-
-	contextStringPrefix = Version + "-"
-
-	dstFinalize = "Finalize"
-	dstInfo     = "Info"
-
-	// deriveKeyPairDST is the DST prefix for the DeriveKeyPair function.
-	deriveKeyPairDST = "DeriveKeyPair"
+	contextStringPrefix  = Version + "-"
+	dstFinalize          = "Finalize"
+	dstInfo              = "Info"
+	deriveKeyPairDST     = "DeriveKeyPair"
 )
 
 var (
