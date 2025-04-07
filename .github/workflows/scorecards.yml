@@ -43,7 +43,7 @@ jobs:
           persist-credentials: false
 
       - name: "Run analysis"
-        uses: ossf/scorecard-action@15bc21f12b2fbbb36fa93d5f2e786f6b18ffe048
+        uses: ossf/scorecard-action@405dced65a1dcc6bc335115002f0690b1f1e49bb
         with:
           results_file: results.sarif
           results_format: sarif
@@ -69,6 +69,6 @@ jobs:
 
       # required for Code scanning alerts
       - name: "Upload SARIF results to code scanning"
-        uses: github/codeql-action/upload-sarif@362ef4ce205154842cd1d34794abd82bb8f12cd5
+        uses: github/codeql-action/upload-sarif@d26c46acea4065b13fc57703621e0a7c8b9e836b
         with:
           sarif_file: results.sarif
