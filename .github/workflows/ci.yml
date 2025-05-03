@@ -28,7 +28,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@dca8468d37b6d090cde2c7b97b738a37134f5ffb
+        uses: actions/setup-go@bb65d8857b81c74a671e81f935d3362a5d718e2f
         with:
           go-version-file: ./go.mod
 
@@ -63,7 +63,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@dca8468d37b6d090cde2c7b97b738a37134f5ffb
+        uses: actions/setup-go@bb65d8857b81c74a671e81f935d3362a5d718e2f
         with:
           go-version: ${{ matrix.go }}
 
@@ -96,7 +96,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Go
-        uses: actions/setup-go@dca8468d37b6d090cde2c7b97b738a37134f5ffb
+        uses: actions/setup-go@bb65d8857b81c74a671e81f935d3362a5d718e2f
         with:
           go-version-file: ./go.mod
 
