@@ -13,14 +13,16 @@ import (
 	"fmt"
 	"slices"
 
-	group "github.com/bytemare/crypto"
-	secretsharing "github.com/bytemare/secret-sharing"
+	"github.com/bytemare/ecc"
+	"github.com/bytemare/secret-sharing/keys"
 
-	oprf "github.com/bytemare/voprf"
 	"github.com/bytemare/voprf/voprf"
+
+	secretsharing "github.com/bytemare/secret-sharing"
+	oprf "github.com/bytemare/voprf"
 )
 
-func exchangeWithOPRFServer(blinded *group.Element) []byte {
+func exchangeWithOPRFServer(blinded *ecc.Element) []byte {
 	// Let's say this is the private key the server uses.
 	encodedPrivateKey, _ := hex.DecodeString("8132542d5ed08594e7522b5eac6bee38bab5868996c25a3fd2a7739be1856b04")
 	privateKey, err := oprf.Ristretto255Sha512.DecodeScalar(encodedPrivateKey)
@@ -31,7 +33,7 @@ func exchangeWithOPRFServer(blinded *group.Element) []byte {
 	return oprf.Evaluate(privateKey, blinded).Encode()
 }
 
-func exchangeWithVOPRFServer(ciphersuite oprf.Ciphersuite, blinded *group.Element) []byte {
+func exchangeWithVOPRFServer(ciphersuite oprf.Ciphersuite, blinded *ecc.Element) []byte {
 	// Let's say this is the private key the server uses.
 	encodedPrivateKey, _ := hex.DecodeString("8132542d5ed08594e7522b5eac6bee38bab5868996c25a3fd2a7739be1856b04")
 	privateKey, err := oprf.Ristretto255Sha512.DecodeScalar(encodedPrivateKey)
@@ -43,9 +45,7 @@ func exchangeWithVOPRFServer(ciphersuite oprf.Ciphersuite, blinded *group.Elemen
 
 	server := voprf.NewServer(oprf.Ristretto255Sha512)
 	if err = server.SetKeyPair(privateKey, publicKey); err != nil {
-		if err != nil {
-			panic(err)
-		}
+		panic(err)
 	}
 
 	return server.Evaluate(blinded).Serialize()
@@ -92,8 +92,8 @@ func Example_oprf_client() {
 
 	// The client finalizes the protocol execution by reverting the blinding and hashing the protocol transcript.
 	output := client.Finalize(evaluated)
-	if output == nil || err != nil {
-		panic(err)
+	if output == nil {
+		panic("output is nil")
 	}
 
 	fmt.Printf("OPRF client output: %s\n", hex.EncodeToString(output))
@@ -193,9 +193,7 @@ func Example_voprf_server() {
 	server := voprf.NewServer(ciphersuite)
 
 	if err = server.SetKeyPair(privateKey, publicKey); err != nil {
-		if err != nil {
-			panic(err)
-		}
+		panic(err)
 	}
 
 	// Let's suppose the client sends this blinded element.
@@ -216,39 +214,36 @@ func Example_voprf_server() {
 }
 
 var (
-	toprfKeyShares       []*oprf.TOPRFKeyShare
-	toprfGlobalSecretKey *group.Scalar
+	toprfKeyShares       []*keys.KeyShare
+	toprfGlobalSecretKey *ecc.Scalar
+	toprfThreshold       = uint16(3)
+	toprfMaxParticipants = uint16(5)
 )
 
-func Example_toprf_server_setup() {
-	const (
-		totalNumberOfShares         = 5
-		minimumNumberOfParticipants = 3 // this is the threshold
-		ciphersuite                 = oprf.Ristretto255Sha512
-	)
+// Example_key_generation shows how to create keys in a threshold setup with distributed key generation described in
+// the original FROST paper.
+func Example_key_generation_decentralised() {
+	fmt.Println("Visit github.com/bytemare/dkg for an example and documentation.")
+	// Output: Visit github.com/bytemare/dkg for an example and documentation.
+}
 
-	// The private key we're going to split. Note that this example uses a centralized trusted dealer key distribution.
-	// It is recommended to use a distributed key generation algorithm between the servers.
+func Example_key_generation_centralised() {
+	ciphersuite := oprf.Ristretto255Sha512
+
+	// This is the global secret to be shared
 	toprfGlobalSecretKey = ciphersuite.Group().NewScalar().Random()
 
-	// SecretSharing shards the private key into totalNumberOfShares.
-	s, err := secretsharing.New(ciphersuite.Group(), minimumNumberOfParticipants)
+	// Shard the secret into shares
+	var err error
+
+	toprfKeyShares, err = secretsharing.Shard(
+		ciphersuite.Group(),
+		toprfGlobalSecretKey,
+		toprfThreshold,
+		toprfMaxParticipants,
+	)
 	if err != nil {
 		panic(err)
-	}
-
-	shares, _, err := s.Shard(toprfGlobalSecretKey, totalNumberOfShares)
-	if err != nil {
-		panic(err)
-	}
-
-	// Convert secretsharing KeyShares into TOPRFKeyShares.
-	toprfKeyShares = make([]*oprf.TOPRFKeyShare, totalNumberOfShares)
-	for i, ks := range shares {
-		toprfKeyShares[i] = &oprf.TOPRFKeyShare{
-			Identifier: ks.Identifier,
-			SecretKey:  ks.SecretKey,
-		}
 	}
 }
 
@@ -264,9 +259,11 @@ func Example_toprf() {
 	ciphersuite := oprf.Ristretto255Sha512
 	clientInput := []byte("client secret")
 
-	// Server setup. We need a set of n key shares. See Example_toprf_server_setup on how to do that.
-	// The combination of all shares results in toprfGlobalSecretKey.
-	Example_toprf_server_setup()
+	// Server setup. We need a set of n key shares. Use:
+	//	- Example_toprf_dkg_setup for an example of distributed key generation setup (recommended)
+	// 	- Example_key_generation_centralised for an example of trusted dealer's centralized key generation
+	// In both cases the combination of all shares is stored in toprfGlobalSecretKey.
+	Example_key_generation_centralised()
 
 	// The client starts as with the base OPRF mode.
 	client := ciphersuite.Client()
@@ -274,17 +271,17 @@ func Example_toprf() {
 
 	// The client then sends the blinded input to the servers. Among these servers, at least the threshold amount of
 	// uncompromised servers must evaluate that blinded input and respond. Let's use the following selection of servers.
-	participantServers := []*oprf.TOPRFKeyShare{
+	participantServers := []*keys.KeyShare{
 		toprfKeyShares[2],
 		toprfKeyShares[0],
 		toprfKeyShares[3],
 	}
 
 	// All participants need to know the identifiers of the other participants
-	participantServersIdentifiers := []*group.Scalar{
-		participantServers[0].Identifier,
-		participantServers[1].Identifier,
-		participantServers[2].Identifier,
+	participantServersIdentifiers := []uint16{
+		participantServers[0].Identifier(),
+		participantServers[1].Identifier(),
+		participantServers[2].Identifier(),
 	}
 
 	evaluations := make([]*oprf.ThresholdEvaluation, len(participantServers))
@@ -308,8 +305,8 @@ func Example_toprf() {
 	// Now let's see how to use the second option.
 	for i, serverShare := range participantServers {
 		evaluations[i] = &oprf.ThresholdEvaluation{
-			Identifier: serverShare.Identifier,
-			Evaluated:  oprf.Evaluate(serverShare.SecretKey, blinded),
+			Identifier: serverShare.Identifier(),
+			Evaluated:  oprf.Evaluate(serverShare.SecretKey(), blinded),
 		}
 	}
 
@@ -319,9 +316,9 @@ func Example_toprf() {
 	// The client then proceeds as usual, and finalizes the protocol.
 	option2Output := client.Finalize(combined)
 
-	// The following is to demonstrate we get the same results.
-	evaluated := oprf.Evaluate(toprfGlobalSecretKey, blinded)
-	referenceOutput := client.Finalize(evaluated)
+	// The following is to demonstrate we get the same results than with a base evaluation.
+	referenceEvaluation := oprf.Evaluate(toprfGlobalSecretKey, blinded)
+	referenceOutput := client.Finalize(referenceEvaluation)
 
 	if slices.Compare(referenceOutput, option1Output) != 0 ||
 		slices.Compare(referenceOutput, option2Output) != 0 {

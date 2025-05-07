@@ -13,61 +13,46 @@ import (
 	"encoding/hex"
 	"testing"
 
-	group "github.com/bytemare/crypto"
-	secretsharing "github.com/bytemare/secret-sharing"
+	"github.com/bytemare/ecc"
+	"github.com/bytemare/secret-sharing/keys"
 
 	"github.com/bytemare/voprf"
+
+	secretsharing "github.com/bytemare/secret-sharing"
 )
 
 type testTOPRF struct {
-	Secret      *group.Scalar
+	Secret      *ecc.Scalar
 	Client      *voprf.Client
-	Blind       *group.Scalar
-	Blinded     *group.Element
-	Evaluated   *group.Element
-	Shares      []*voprf.TOPRFKeyShare
+	Blind       *ecc.Scalar
+	Blinded     *ecc.Element
+	Evaluated   *ecc.Element
+	Shares      []*keys.KeyShare
 	Input       []byte
 	Output      []byte
-	NPeers      uint
-	NThreshold  uint
+	NPeers      uint16
+	NThreshold  uint16
 	Ciphersuite voprf.Ciphersuite
-	Group       group.Group
+	Group       ecc.Group
 }
 
-func convertShares(in ...*secretsharing.KeyShare) []*voprf.TOPRFKeyShare {
-	out := make([]*voprf.TOPRFKeyShare, len(in))
-	for i, ks := range in {
-		out[i] = &voprf.TOPRFKeyShare{
-			Identifier: ks.Identifier,
-			SecretKey:  ks.SecretKey,
-		}
-	}
-
-	return out
-}
-
-func testSetupShares(t *testing.T, cs voprf.Ciphersuite, n, min uint, input string) *testTOPRF {
+func testSetupShares(t *testing.T, cs voprf.Ciphersuite, n, min uint16, input string) *testTOPRF {
 	toprf := &testTOPRF{
 		Ciphersuite: cs,
 		Group:       cs.Group(),
-		Secret:      cs.Group().NewScalar(),
+		Secret:      cs.Group().NewScalar().Random(),
 		Shares:      nil,
 		Input:       []byte(input),
 		NPeers:      n,
 		NThreshold:  min,
 	}
 
-	s, err := secretsharing.New(toprf.Group, min)
+	shares, err := secretsharing.Shard(cs.Group(), toprf.Secret, min, n)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	shares, _, err := s.Shard(toprf.Secret, n)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	toprf.Shares = convertShares(shares...)
+	toprf.Shares = shares
 	toprf.Blind = toprf.Group.NewScalar().Random()
 	toprf.Client = cs.Client()
 	toprf.Client.SetBlind(toprf.Blind)
@@ -90,11 +75,11 @@ func shuffleEvaluations(e []*voprf.ThresholdEvaluation, indexes ...int) []*voprf
 	return shuffled
 }
 
-func selectParticipants(t *testTOPRF, indexes ...int) ([]*group.Scalar, []*voprf.TOPRFKeyShare) {
-	ids := make([]*group.Scalar, len(indexes))
-	shares := make([]*voprf.TOPRFKeyShare, len(indexes))
+func selectParticipants(t *testTOPRF, indexes ...int) ([]uint16, []*keys.KeyShare) {
+	ids := make([]uint16, len(indexes))
+	shares := make([]*keys.KeyShare, len(indexes))
 	for i, index := range indexes {
-		ids[i] = t.Shares[index-1].Identifier
+		ids[i] = t.Shares[index-1].Identifier()
 		shares[i] = t.Shares[index-1]
 	}
 
@@ -149,8 +134,8 @@ func Test_TOPRF_ThresholdProxyCombine(t *testing.T) {
 	var evaluations [peers]*voprf.ThresholdEvaluation
 	for i := range peers {
 		evaluations[i] = &voprf.ThresholdEvaluation{
-			Identifier: toprf.Shares[i].Identifier,
-			Evaluated:  voprf.Evaluate(toprf.Shares[i].SecretKey, toprf.Blinded),
+			Identifier: toprf.Shares[i].Identifier(),
+			Evaluated:  voprf.Evaluate(toprf.Shares[i].SecretKey(), toprf.Blinded),
 		}
 	}
 

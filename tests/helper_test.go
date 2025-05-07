@@ -17,7 +17,7 @@ import (
 	"math/big"
 	"testing"
 
-	group "github.com/bytemare/crypto"
+	"github.com/bytemare/ecc"
 	"github.com/bytemare/hash"
 
 	oprf "github.com/bytemare/voprf"
@@ -34,42 +34,42 @@ type configuration struct {
 	name        string
 	ciphersuite oprf.Ciphersuite
 	hash        hash.Hash
-	group       group.Group
+	group       ecc.Group
 }
 
 var configurationTable = []configuration{
 	{
 		name:        "Ristretto255",
 		ciphersuite: oprf.Ristretto255Sha512,
-		group:       group.Ristretto255Sha512,
+		group:       ecc.Ristretto255Sha512,
 		hash:        hash.SHA512,
 		curve:       nil,
 	},
 	{
 		name:        "P256Sha256",
 		ciphersuite: oprf.P256Sha256,
-		group:       group.P256Sha256,
+		group:       ecc.P256Sha256,
 		hash:        hash.SHA256,
 		curve:       elliptic.P256(),
 	},
 	{
 		name:        "P384Sha512",
 		ciphersuite: oprf.P384Sha384,
-		group:       group.P384Sha384,
+		group:       ecc.P384Sha384,
 		hash:        hash.SHA384,
 		curve:       elliptic.P384(),
 	},
 	{
 		name:        "P521Sha512",
 		ciphersuite: oprf.P521Sha512,
-		group:       group.P521Sha512,
+		group:       ecc.P521Sha512,
 		hash:        hash.SHA512,
 		curve:       elliptic.P521(),
 	},
 	{
 		name:        "Secp256k1Sha256",
 		ciphersuite: oprf.Secp256k1,
-		group:       group.Secp256k1,
+		group:       ecc.Secp256k1Sha256,
 		hash:        hash.SHA256,
 		curve:       nil,
 	},
@@ -104,7 +104,7 @@ func getBadSecP256k1Scalar() []byte {
 	return decoded
 }
 
-func badScalar(t *testing.T, g group.Group, curve elliptic.Curve) []byte {
+func badScalar(t *testing.T, g ecc.Group, curve elliptic.Curve) []byte {
 	order := curve.Params().P
 	exceeded := new(big.Int).Add(order, big.NewInt(2)).Bytes()
 
@@ -126,7 +126,7 @@ func randomBytes(length int) []byte {
 	return r
 }
 
-func getBadNistElement(t *testing.T, g group.Group) []byte {
+func getBadNistElement(t *testing.T, g ecc.Group) []byte {
 	size := g.ElementLength()
 	element := randomBytes(size)
 	// detag compression

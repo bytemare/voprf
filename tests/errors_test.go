@@ -16,12 +16,14 @@ import (
 	"strings"
 	"testing"
 
-	group "github.com/bytemare/crypto"
-	secretsharing "github.com/bytemare/secret-sharing"
+	"github.com/bytemare/ecc"
+	"github.com/bytemare/secret-sharing/keys"
 
-	oprf "github.com/bytemare/voprf"
 	"github.com/bytemare/voprf/internal"
 	"github.com/bytemare/voprf/voprf"
+
+	secretsharing "github.com/bytemare/secret-sharing"
+	oprf "github.com/bytemare/voprf"
 )
 
 /*
@@ -74,11 +76,11 @@ func Test_VOPRF_Client_BadPubkey(t *testing.T) {
 
 func copyEval(e *voprf.Evaluation) *voprf.Evaluation {
 	cpy := &voprf.Evaluation{
-		Proof: [2]*group.Scalar{
+		Proof: [2]*ecc.Scalar{
 			e.Proof[0].Copy(),
 			e.Proof[1].Copy(),
 		},
-		Evaluations: make([]*group.Element, len(e.Evaluations)),
+		Evaluations: make([]*ecc.Element, len(e.Evaluations)),
 	}
 
 	for i, eval := range e.Evaluations {
@@ -126,7 +128,7 @@ func Test_VOPRF_Client_BadEvaluation(t *testing.T) {
 		badEval.Evaluations = nil
 		testFinalize(t, client, errInputNoEval, badEval)
 
-		badEval.Evaluations = []*group.Element{}
+		badEval.Evaluations = []*ecc.Element{}
 		testFinalize(t, client, errInputNoEval, badEval)
 
 		badEval = copyEval(evaluation)
@@ -276,7 +278,7 @@ func expectPanic(expectedError error, f func()) (bool, string) {
 	}
 
 	if err.Error() != expectedError.Error() {
-		return false, fmt.Sprintf("expected %q, got %q", expectedError, err)
+		return false, fmt.Sprintf("expected panic with %q, got %q", expectedError, err)
 	}
 
 	return true, ""
@@ -285,19 +287,18 @@ func expectPanic(expectedError error, f func()) (bool, string) {
 func Test_BadCiphersuite(t *testing.T) {
 	expectedError := errors.New("invalid OPRF dependency - Group: edwards25519_XMD:SHA-512_ELL2_RO_")
 	if hasPanic, err := expectPanic(expectedError, func() {
-		_ = internal.LoadConfiguration(group.Edwards25519Sha512, 0)
+		_ = internal.LoadConfiguration(ecc.Edwards25519Sha512, 0)
 	}); !hasPanic {
 		t.Fatalf("expected panic with wrong group: %v", err)
 	}
 }
 
-func pTag(g group.Group, info []byte) *group.Scalar {
+func pTag(g ecc.Group, info []byte) *ecc.Scalar {
 	framedInfo := make([]byte, 0, len("Info")+2+len(info))
 	framedInfo = append(framedInfo, "Info"...)
 	framedInfo = append(framedInfo, append(internal.I2osp2(len(info)), info...)...)
 	ctx := internal.ContextString(internal.POPRF, internal.CiphersuiteIdentifier[g])
 	dst := internal.Dst("HashToScalar-", ctx)
-
 	return g.HashToScalar(framedInfo, dst)
 }
 
@@ -312,19 +313,19 @@ func Test_BreakPOPRF(t *testing.T) {
 
 	testAll(t, func(c *configuration) {
 		tag := pTag(c.group, info)
-		sk := c.group.NewScalar().Subtract(tag)
-		pk := c.group.Base().Multiply(sk)
+		sk1 := c.group.NewScalar().Subtract(tag) // negate the tag, so to yield an 0 when tweaking in POPRF
+		pk := c.group.Base().Multiply(sk1)
 
 		if hasPanic, err := expectPanic(errInvalidPOPRFPrivateKey, func() {
-			_ = voprf.NewServer(c.ciphersuite, info...).SetKeyPair(sk, pk)
+			_ = voprf.NewServer(c.ciphersuite, info...).SetKeyPair(sk1, pk)
 		}); !hasPanic {
-			t.Fatalf("expected panic with wrong group: %v", err)
+			t.Fatalf("expected panic for tweaking to zero scalar: %v", err)
 		}
 
 		if hasPanic, err := expectPanic(errInvalidPOPRFPubKey, func() {
 			_, _ = voprf.NewClient(c.ciphersuite, pk, info...)
 		}); !hasPanic {
-			t.Fatalf("expected panic with wrong group: %v", err)
+			t.Fatalf("expected panic: %v", err)
 		}
 	})
 }
@@ -334,7 +335,7 @@ func Test_NewVerifiable_POPRFNotSet(t *testing.T) {
 
 	testAll(t, func(c *configuration) {
 		if hasPanic, err := expectPanic(errWrongMode, func() {
-			client := internal.NewClient(internal.VOPRF, group.Group(c.ciphersuite))
+			client := internal.NewClient(internal.VOPRF, ecc.Group(c.ciphersuite))
 			_ = internal.NewVerifiable(client.Core, []byte("info"))
 		}); !hasPanic {
 			t.Fatalf("expected panic with wrong group: %v", err)
@@ -469,14 +470,11 @@ func Test_TOPRF_Panic(t *testing.T) {
 	// A nil ID or zero ID is provided in the evaluation identifiers
 	errPolyXIsZero := errors.New("identifier for interpolation is nil or zero")
 
-	// the list of peers has a nil identifier
-	errPolyHasNilCoeff := errors.New("the polynomial has a nil coefficient")
-
 	// the list of peers has a zero identifier
 	errPolyHasZeroCoeff := errors.New("one of the polynomial's coefficients is zero")
 
 	// the list of peers doesn't include a provided id
-	errPolyCoeffInexistant := errors.New("the coefficient does not exist in the polynomial")
+	errPolyCoeffInexistant := errors.New("the identifier does not exist in the polynomial")
 
 	// the list of peers has duplicates
 	errPolyHasDuplicates := errors.New("the polynomial has duplicate coefficients")
@@ -484,12 +482,8 @@ func Test_TOPRF_Panic(t *testing.T) {
 	testAll(t, func(c *configuration) {
 		sk := c.group.NewScalar().Random()
 		blinded := c.group.Base()
-		s, err := secretsharing.New(c.ciphersuite.Group(), 3)
-		if err != nil {
-			panic(err)
-		}
 
-		shares, _, err := s.Shard(sk, 5)
+		shares, err := secretsharing.Shard(c.ciphersuite.Group(), sk, 3, 5)
 		if err != nil {
 			panic(err)
 		}
@@ -497,101 +491,85 @@ func Test_TOPRF_Panic(t *testing.T) {
 		evaluations := make([]*oprf.ThresholdEvaluation, 3)
 		for i, share := range shares[:3] {
 			evaluations[i] = &oprf.ThresholdEvaluation{
-				Identifier: share.Identifier,
-				Evaluated:  oprf.Evaluate(share.SecretKey, blinded),
+				Identifier: share.Identifier(),
+				Evaluated:  oprf.Evaluate(share.SecretKey(), blinded),
 			}
 		}
 
-		peers := []*group.Scalar{
-			evaluations[0].Identifier.Copy(),
-			evaluations[1].Identifier.Copy(),
-			evaluations[2].Identifier.Copy(),
+		peers := []uint16{
+			evaluations[0].Identifier,
+			evaluations[1].Identifier,
+			evaluations[2].Identifier,
 		}
 
 		// 1.
 		{
-			share := &oprf.TOPRFKeyShare{
-				Identifier: nil,
-				SecretKey:  shares[1].SecretKey.Copy(),
+			share := &keys.KeyShare{
+				Secret: shares[1].SecretKey().Copy(),
+				PublicKeyShare: keys.PublicKeyShare{
+					ID: 0,
+				},
 			}
+
 			if hasPanic, err := expectPanic(errPolyXIsZero, func() {
 				_ = oprf.ThresholdEvaluate(c.group, peers, share, blinded)
 			}); !hasPanic {
-				t.Fatalf("expected panic with %q: %v", errPolyXIsZero, err)
-			}
-		}
-
-		// 2.
-		{
-			share := &oprf.TOPRFKeyShare{
-				Identifier: c.group.NewScalar(),
-				SecretKey:  shares[1].SecretKey.Copy(),
-			}
-			if hasPanic, err := expectPanic(errPolyXIsZero, func() {
-				_ = oprf.ThresholdEvaluate(c.group, peers, share, blinded)
-			}); !hasPanic {
-				t.Fatalf("expected panic with %q: %v", errPolyXIsZero, err)
-			}
-		}
-
-		// 3.
-		{
-			ev := copyTEvals(evaluations)
-			ev[1].Identifier = nil
-			if hasPanic, err := expectPanic(errPolyHasNilCoeff, func() {
-				_ = oprf.ThresholdProxyCombine(c.group, ev)
-			}); !hasPanic {
-				t.Fatalf("expected panic with %q: %v", errPolyHasNilCoeff, err)
+				t.Fatal(err)
 			}
 		}
 
 		// 4.
 		{
 			ev := copyTEvals(evaluations)
-			ev[1].Identifier.Zero()
+			ev[1].Identifier = 0
 			if hasPanic, err := expectPanic(errPolyHasZeroCoeff, func() {
 				_ = oprf.ThresholdProxyCombine(c.group, ev)
 			}); !hasPanic {
-				t.Fatalf("expected panic with %q: %v", errPolyHasZeroCoeff, err)
+				t.Fatal(err)
 			}
 		}
 
 		// 5.
 		{
-			peers[2].Set(peers[0])
-			share := &oprf.TOPRFKeyShare{
-				Identifier: shares[4].Identifier.Copy(),
-				SecretKey:  shares[4].SecretKey.Copy(),
+			share := &keys.KeyShare{
+				Secret: shares[4].SecretKey().Copy(),
+				PublicKeyShare: keys.PublicKeyShare{
+					ID: shares[len(shares)-1].Identifier() + 1,
+				},
 			}
+
 			if hasPanic, err := expectPanic(errPolyCoeffInexistant, func() {
 				_ = oprf.ThresholdEvaluate(c.group, peers, share, blinded)
 			}); !hasPanic {
-				t.Fatalf("expected panic with %q: %v", errPolyCoeffInexistant, err)
+				t.Fatal(err)
 			}
 		}
 
 		// 6.
 		{
-			peers[2].Set(peers[0])
-			share := &oprf.TOPRFKeyShare{
-				Identifier: shares[0].Identifier.Copy(),
-				SecretKey:  shares[0].SecretKey.Copy(),
+			peers[2] = peers[0]
+			share := &keys.KeyShare{
+				Secret: shares[0].SecretKey().Copy(),
+				PublicKeyShare: keys.PublicKeyShare{
+					ID: shares[0].Identifier(),
+				},
 			}
+
 			if hasPanic, err := expectPanic(errPolyHasDuplicates, func() {
 				_ = oprf.ThresholdEvaluate(c.group, peers, share, blinded)
 			}); !hasPanic {
-				t.Fatalf("expected panic with %q: %v", errPolyHasDuplicates, err)
+				t.Fatal(err)
 			}
 		}
 
 		// 7.
 		{
 			ev := copyTEvals(evaluations)
-			ev[1].Identifier.Set(ev[0].Identifier)
+			ev[1].Identifier = ev[0].Identifier
 			if hasPanic, err := expectPanic(errPolyHasDuplicates, func() {
 				_ = oprf.ThresholdProxyCombine(c.group, ev)
 			}); !hasPanic {
-				t.Fatalf("expected panic with %q: %v", errPolyHasDuplicates, err)
+				t.Fatal(err)
 			}
 		}
 	})
@@ -601,7 +579,7 @@ func copyTEvals(te []*oprf.ThresholdEvaluation) []*oprf.ThresholdEvaluation {
 	cpy := make([]*oprf.ThresholdEvaluation, 0, len(te))
 	for _, e := range te {
 		cpy = append(cpy, &oprf.ThresholdEvaluation{
-			Identifier: e.Identifier.Copy(),
+			Identifier: e.Identifier,
 			Evaluated:  e.Evaluated.Copy(),
 		})
 	}

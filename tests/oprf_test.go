@@ -14,8 +14,9 @@ import (
 	"errors"
 	"testing"
 
-	oprf "github.com/bytemare/voprf"
 	"github.com/bytemare/voprf/voprf"
+
+	oprf "github.com/bytemare/voprf"
 )
 
 var errExpectedEquality = errors.New("expected equality")
@@ -159,7 +160,7 @@ func TestDeriveKeyPair(t *testing.T) {
 
 	sk, pk := oprf.DeriveKeyPair(ciphersuite, random, info)
 
-	if sk.Equal(refSk) != 1 || pk.Equal(refPk) != 1 {
+	if !sk.Equal(refSk) || !pk.Equal(refPk) {
 		t.Fatal(errExpectedEquality)
 	}
 }
@@ -245,8 +246,8 @@ func Test_Evaluation_Serde(t *testing.T) {
 }
 
 func compareEvaluations(t *testing.T, a, b *voprf.Evaluation, expected bool) {
-	isEqual := a.Proof[0].Equal(b.Proof[0]) == 1
-	isEqual = isEqual && a.Proof[1].Equal(b.Proof[1]) == 1
+	isEqual := a.Proof[0].Equal(b.Proof[0])
+	isEqual = isEqual && a.Proof[1].Equal(b.Proof[1])
 	isEqual = isEqual && len(a.Evaluations) == len(b.Evaluations)
 
 	if isEqual != expected {
@@ -254,7 +255,7 @@ func compareEvaluations(t *testing.T, a, b *voprf.Evaluation, expected bool) {
 	}
 
 	for i, eval := range a.Evaluations {
-		isEqual = isEqual && eval.Equal(b.Evaluations[i]) == 1
+		isEqual = isEqual && eval.Equal(b.Evaluations[i])
 	}
 
 	if isEqual != expected {

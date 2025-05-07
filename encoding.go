@@ -11,11 +11,11 @@
 // For VOPRF and POPRF use the github.com/bytemare/oprf/voprf package.
 package voprf
 
-import group "github.com/bytemare/crypto"
+import "github.com/bytemare/ecc"
 
 // DecodeElement decodes e to an element in the group.
-func (c Ciphersuite) DecodeElement(e []byte) (*group.Element, error) {
-	result := group.Group(c).NewElement()
+func (c Ciphersuite) DecodeElement(e []byte) (*ecc.Element, error) {
+	result := ecc.Group(c).NewElement()
 
 	if err := result.Decode(e); err != nil {
 		return nil, err
@@ -25,8 +25,8 @@ func (c Ciphersuite) DecodeElement(e []byte) (*group.Element, error) {
 }
 
 // DecodeScalar decodes s to a scalar in the group.
-func (c Ciphersuite) DecodeScalar(s []byte) (*group.Scalar, error) {
-	result := group.Group(c).NewScalar()
+func (c Ciphersuite) DecodeScalar(s []byte) (*ecc.Scalar, error) {
+	result := ecc.Group(c).NewScalar()
 
 	if err := result.Decode(s); err != nil {
 		return nil, err

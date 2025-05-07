@@ -13,7 +13,7 @@ import (
 	"errors"
 	"fmt"
 
-	group "github.com/bytemare/crypto"
+	"github.com/bytemare/ecc"
 	"github.com/bytemare/hash"
 )
 
@@ -29,6 +29,8 @@ const (
 
 	// POPRF identifies the partially-oblivious mode.
 	POPRF
+
+	// TOPRF identifies te
 )
 
 const (
@@ -47,12 +49,12 @@ const (
 var (
 	// CiphersuiteIdentifier maps a group to its [RFC9497](https://datatracker.ietf.org/doc/rfc9497) compliant
 	// identifier.
-	CiphersuiteIdentifier = map[group.Group]string{
-		group.Ristretto255Sha512: "ristretto255-SHA512",
-		group.P256Sha256:         "P256-SHA256",
-		group.P384Sha384:         "P384-SHA384",
-		group.P521Sha512:         "P521-SHA512",
-		group.Secp256k1:          "secp256k1-SHA256",
+	CiphersuiteIdentifier = map[ecc.Group]string{
+		ecc.Ristretto255Sha512: "ristretto255-SHA512",
+		ecc.P256Sha256:         "P256-SHA256",
+		ecc.P384Sha384:         "P384-SHA384",
+		ecc.P521Sha512:         "P521-SHA512",
+		ecc.Secp256k1Sha256:    "secp256k1-SHA256",
 	}
 
 	errInvalidInput = errors.New(
@@ -71,7 +73,7 @@ type Core struct {
 	Hash      hash.Hasher
 	dstH2gDST []byte
 	dstH2sDST []byte
-	Group     group.Group
+	Group     ecc.Group
 	Mode      Mode
 }
 
@@ -80,7 +82,7 @@ func ContextString(mode Mode, name string) []byte {
 	return []byte(contextStringPrefix + string(mode) + "-" + name)
 }
 
-func makeCore(g group.Group, h hash.Hash, mode Mode) *Core {
+func makeCore(g ecc.Group, h hash.Hash, mode Mode) *Core {
 	ctx := ContextString(mode, CiphersuiteIdentifier[g])
 
 	return &Core{
@@ -94,30 +96,30 @@ func makeCore(g group.Group, h hash.Hash, mode Mode) *Core {
 
 // LoadConfiguration returns a core configuration given the ciphersuite and mode. The info argument should only be
 // provided in POPRF mode.
-func LoadConfiguration(g group.Group, mode Mode) *Core {
+func LoadConfiguration(g ecc.Group, mode Mode) *Core {
 	switch g {
-	case group.Ristretto255Sha512:
-		return makeCore(group.Ristretto255Sha512, hash.SHA512, mode)
-	case group.P256Sha256:
-		return makeCore(group.P256Sha256, hash.SHA256, mode)
-	case group.P384Sha384:
-		return makeCore(group.P384Sha384, hash.SHA384, mode)
-	case group.P521Sha512:
-		return makeCore(group.P521Sha512, hash.SHA512, mode)
-	case group.Secp256k1:
-		return makeCore(group.Secp256k1, hash.SHA256, mode)
+	case ecc.Ristretto255Sha512:
+		return makeCore(ecc.Ristretto255Sha512, hash.SHA512, mode)
+	case ecc.P256Sha256:
+		return makeCore(ecc.P256Sha256, hash.SHA256, mode)
+	case ecc.P384Sha384:
+		return makeCore(ecc.P384Sha384, hash.SHA384, mode)
+	case ecc.P521Sha512:
+		return makeCore(ecc.P521Sha512, hash.SHA512, mode)
+	case ecc.Secp256k1Sha256:
+		return makeCore(ecc.Secp256k1Sha256, hash.SHA256, mode)
 	default:
 		panic(fmt.Sprintf("invalid OPRF dependency - Group: %v", g))
 	}
 }
 
 // DeriveKeyPair derives a private-public key pair given a secret seed and instance specific info.
-func (c Core) DeriveKeyPair(seed, info []byte) (*group.Scalar, *group.Element) {
+func (c Core) DeriveKeyPair(seed, info []byte) (*ecc.Scalar, *ecc.Element) {
 	dst := concatenate([]byte(deriveKeyPairDST), ContextString(c.Mode, CiphersuiteIdentifier[c.Group]))
 	deriveInput := concatenate(seed, lengthPrefixEncode(info))
 
 	var counter uint8
-	var sk *group.Scalar
+	var sk *ecc.Scalar
 
 	for sk == nil || sk.IsZero() {
 		if counter > 255 {
@@ -141,20 +143,20 @@ func (c Core) HashTranscript(input, unblinded, poprfInfo []byte) []byte {
 
 	if len(poprfInfo) != 0 { // POPRF
 		encInfo := lengthPrefixEncode(poprfInfo)
-		h = c.Hash.Hash(0, encInput, encInfo, encElement, encDST)
+		h = c.Hash.Hash(encInput, encInfo, encElement, encDST)
 	} else { // OPRF and VOPRF
-		h = c.Hash.Hash(0, encInput, encElement, encDST)
+		h = c.Hash.Hash(encInput, encElement, encDST)
 	}
 
 	return h
 }
 
 // HashToScalar maps the input data to a scalar.
-func (c Core) HashToScalar(data []byte) *group.Scalar {
+func (c Core) HashToScalar(data []byte) *ecc.Scalar {
 	return c.Group.HashToScalar(data, c.dstH2sDST)
 }
 
 // HashToGroup maps the input data to an element of the Group.
-func (c Core) HashToGroup(data []byte) *group.Element {
+func (c Core) HashToGroup(data []byte) *ecc.Element {
 	return c.Group.HashToGroup(data, c.dstH2gDST)
 }

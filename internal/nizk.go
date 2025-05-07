@@ -11,7 +11,7 @@ package internal
 import (
 	"errors"
 
-	group "github.com/bytemare/crypto"
+	"github.com/bytemare/ecc"
 )
 
 const (
@@ -44,7 +44,7 @@ func NewVerifiable(c *Core, info []byte) *Verifiable {
 	}
 }
 
-func (v Verifiable) challenge(encPks []byte, a0, a1, a2, a3 *group.Element) *group.Scalar {
+func (v Verifiable) challenge(encPks []byte, a0, a1, a2, a3 *ecc.Element) *ecc.Scalar {
 	encA0 := lengthPrefixEncode(a0.Encode())
 	encA1 := lengthPrefixEncode(a1.Encode())
 	encA2 := lengthPrefixEncode(a2.Encode())
@@ -55,7 +55,7 @@ func (v Verifiable) challenge(encPks []byte, a0, a1, a2, a3 *group.Element) *gro
 	return v.HashToScalar(input)
 }
 
-func (v Verifiable) pTag(info []byte) *group.Scalar {
+func (v Verifiable) pTag(info []byte) *ecc.Scalar {
 	framedInfo := make([]byte, 0, len(dstInfo)+2+len(info)) // dstInfo + lengthPrefixEncode(info)
 	framedInfo = append(framedInfo, dstInfo...)
 	framedInfo = append(framedInfo, lengthPrefixEncode(info)...)
@@ -64,20 +64,21 @@ func (v Verifiable) pTag(info []byte) *group.Scalar {
 }
 
 // TweakPrivateKey tweaks the input scalar for use in the POPRF setting.
-func (v Verifiable) TweakPrivateKey(privateKey *group.Scalar) (*group.Scalar, *group.Scalar) {
+func (v Verifiable) TweakPrivateKey(privateKey *ecc.Scalar) (*ecc.Scalar, *ecc.Scalar) {
 	context := v.pTag(v.POPRFInfo)
 	t := privateKey.Copy().Add(context)
-	scalar := t.Copy().Invert()
 
-	if scalar.IsZero() {
+	if t.IsZero() {
 		panic(errInvalidPOPRFPrivateKey)
 	}
+
+	scalar := t.Copy().Invert()
 
 	return scalar, t
 }
 
 // TweakPublicKey tweaks the input element for use in the POPRF setting.
-func (v Verifiable) TweakPublicKey(pubKey *group.Element) *group.Element {
+func (v Verifiable) TweakPublicKey(pubKey *ecc.Element) *ecc.Element {
 	m := v.pTag(v.POPRFInfo)
 
 	t := v.Group.Base().Multiply(m).Add(pubKey)
@@ -90,10 +91,10 @@ func (v Verifiable) TweakPublicKey(pubKey *group.Element) *group.Element {
 
 // GenerateProof produces a non-interactive zero-knowledge (NIZK) proof on the evaluated elements.
 func (v Verifiable) GenerateProof(
-	random, k *group.Scalar,
-	pk *group.Element,
-	cs, ds []*group.Element,
-) (*group.Scalar, *group.Scalar) {
+	random, k *ecc.Scalar,
+	pk *ecc.Element,
+	cs, ds []*ecc.Element,
+) (*ecc.Scalar, *ecc.Scalar) {
 	encPk := lengthPrefixEncode(pk.Encode())
 	a0, a1 := v.computeComposites(k, encPk, cs, ds)
 
@@ -108,7 +109,7 @@ func (v Verifiable) GenerateProof(
 
 // VerifyProof verifies the non-interactive zero-knowledge (NIZK) proof on the evaluated elements produced by
 // GenerateProof.
-func (v Verifiable) VerifyProof(proofC, proofS *group.Scalar, pubKey *group.Element, cs, ds []*group.Element) error {
+func (v Verifiable) VerifyProof(proofC, proofS *ecc.Scalar, pubKey *ecc.Element, cs, ds []*ecc.Element) error {
 	encGk := lengthPrefixEncode(pubKey.Encode())
 	a0, a1 := v.computeComposites(nil, encGk, cs, ds)
 
@@ -127,7 +128,7 @@ func (v Verifiable) VerifyProof(proofC, proofS *group.Scalar, pubKey *group.Elem
 	return nil
 }
 
-func (v Verifiable) ccScalar(encSeed []byte, index int, ci, di *group.Element) *group.Scalar {
+func (v Verifiable) ccScalar(encSeed []byte, index int, ci, di *ecc.Element) *ecc.Scalar {
 	input := concatenate(encSeed, I2osp2(index),
 		lengthPrefixEncode(ci.Encode()),
 		lengthPrefixEncode(di.Encode()),
@@ -137,10 +138,10 @@ func (v Verifiable) ccScalar(encSeed []byte, index int, ci, di *group.Element) *
 }
 
 func (v Verifiable) computeCompositesFast(
-	k *group.Scalar,
+	k *ecc.Scalar,
 	encSeed []byte,
-	cs, ds []*group.Element,
-) (*group.Element, *group.Element) {
+	cs, ds []*ecc.Element,
+) (*ecc.Element, *ecc.Element) {
 	m := v.Group.NewElement().Identity()
 
 	for i, ci := range cs {
@@ -151,7 +152,7 @@ func (v Verifiable) computeCompositesFast(
 	return m, m.Copy().Multiply(k)
 }
 
-func (v Verifiable) computeCompositesClient(encSeed []byte, cs, ds []*group.Element) (*group.Element, *group.Element) {
+func (v Verifiable) computeCompositesClient(encSeed []byte, cs, ds []*ecc.Element) (*ecc.Element, *ecc.Element) {
 	m := v.Group.NewElement().Identity()
 	z := v.Group.NewElement().Identity()
 
@@ -165,14 +166,14 @@ func (v Verifiable) computeCompositesClient(encSeed []byte, cs, ds []*group.Elem
 }
 
 func (v Verifiable) computeComposites(
-	k *group.Scalar,
+	k *ecc.Scalar,
 	encGk []byte,
-	cs, ds []*group.Element,
-) (*group.Element, *group.Element) {
+	cs, ds []*ecc.Element,
+) (*ecc.Element, *ecc.Element) {
 	encSeedDST := lengthPrefixEncode(v.seedDST)
 
 	// build seed
-	seed := v.Hash.Hash(0, encGk, encSeedDST)
+	seed := v.Hash.Hash(encGk, encSeedDST)
 	encSeed := lengthPrefixEncode(seed)
 
 	// This means where calling from the server, and can optimize computation of Z, since Zi = sks * Mi

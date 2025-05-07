@@ -16,7 +16,7 @@ import (
 	"errors"
 	"fmt"
 
-	group "github.com/bytemare/crypto"
+	"github.com/bytemare/ecc"
 
 	"github.com/bytemare/voprf"
 	"github.com/bytemare/voprf/internal"
@@ -32,11 +32,11 @@ var (
 // To decode a byte string back to an Evaluation, the SetCiphersuite must be used with the relevant ciphersuite.
 type Evaluation struct {
 	// Proof is the NIZK proof over the Evaluations elements.
-	Proof [2]*group.Scalar `json:"p"`
+	Proof [2]*ecc.Scalar `json:"p"`
 
 	// Evaluations is the set of evaluated elements.
-	Evaluations []*group.Element `json:"e"`
-	group       group.Group
+	Evaluations []*ecc.Element `json:"e"`
+	group       ecc.Group
 }
 
 func (e *Evaluation) encodeProof() [2][]byte {
@@ -87,7 +87,7 @@ func (e *Evaluation) SetCiphersuite(c voprf.Ciphersuite) {
 	e.group = c.Group()
 }
 
-func decodeProof(g group.Group, data []byte) ([]*group.Scalar, error) {
+func decodeProof(g ecc.Group, data []byte) ([]*ecc.Scalar, error) {
 	sLen := g.ScalarLength()
 
 	pc := g.NewScalar()
@@ -100,10 +100,10 @@ func decodeProof(g group.Group, data []byte) ([]*group.Scalar, error) {
 		return nil, fmt.Errorf("invalid s proof encoding: %w", err)
 	}
 
-	return []*group.Scalar{pc, ps}, nil
+	return []*ecc.Scalar{pc, ps}, nil
 }
 
-func decodeEvaluations(g group.Group, output []*group.Element, data []byte) error {
+func decodeEvaluations(g ecc.Group, output []*ecc.Element, data []byte) error {
 	pLen := g.ElementLength()
 	i := 0
 
@@ -120,7 +120,7 @@ func decodeEvaluations(g group.Group, output []*group.Element, data []byte) erro
 	return nil
 }
 
-func decodeEvaluationsSplit(g group.Group, output []*group.Element, data [][]byte) error {
+func decodeEvaluationsSplit(g ecc.Group, output []*ecc.Element, data [][]byte) error {
 	for i, eval := range data {
 		decoded := g.NewElement()
 		if err := decoded.Decode(eval); err != nil {
@@ -162,7 +162,7 @@ func (e *Evaluation) Deserialize(data []byte) error {
 		return err
 	}
 
-	evals := make([]*group.Element, nbEvals)
+	evals := make([]*ecc.Element, nbEvals)
 	if err = decodeEvaluations(e.group, evals, evaluations); err != nil {
 		return err
 	}
@@ -230,7 +230,7 @@ func (e *Evaluation) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("invalid s proof encoding: %w", err)
 	}
 
-	evals := make([]*group.Element, len(enc.Eval))
+	evals := make([]*ecc.Element, len(enc.Eval))
 	if err := decodeEvaluationsSplit(e.group, evals, enc.Eval); err != nil {
 		return err
 	}

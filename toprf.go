@@ -9,30 +9,20 @@
 package voprf
 
 import (
-	group "github.com/bytemare/crypto"
+	"github.com/bytemare/ecc"
+	"github.com/bytemare/secret-sharing/keys"
+
 	secretsharing "github.com/bytemare/secret-sharing"
 )
 
 // ThresholdEvaluation is the result of the TOPRF server's evaluation.
 type ThresholdEvaluation struct {
-	// The Identifier is the identifier of the participant server that produced the Evaluated value.
-	Identifier *group.Scalar
-
-	// Evaluated is the output of the participant server's evaluation of the blinded input.
-	Evaluated *group.Element
+	Evaluated  *ecc.Element
+	Identifier uint16
 }
 
-// TOPRFKeyShare identifies the sharded key share for a given participant.
-type TOPRFKeyShare struct {
-	// Identifier uniquely identifies a key share within secret sharing instance.
-	Identifier *group.Scalar
-
-	// SecretKey is the participant's secret share.
-	SecretKey *group.Scalar
-}
-
-func delta(g group.Group, peers secretsharing.Polynomial, eval *ThresholdEvaluation) *group.Element {
-	iv, err := peers.DeriveInterpolatingValue(g, eval.Identifier)
+func delta(g ecc.Group, peers secretsharing.Polynomial, eval *ThresholdEvaluation) *ecc.Element {
+	iv, err := peers.DeriveInterpolatingValue(g, g.NewScalar().SetUInt64(uint64(eval.Identifier)))
 	if err != nil {
 		panic(err)
 	}
@@ -41,27 +31,28 @@ func delta(g group.Group, peers secretsharing.Polynomial, eval *ThresholdEvaluat
 }
 
 // ThresholdEvaluate is run by a participant server in the TOPRF scheme to evaluate a client's input instead of using
-// the basic Evaluate function, upon which the different evaluations must be combined with ThresholdCombine. peers is
-// the list of all the other active participants.
+// the basic Evaluate function, upon which the different evaluations must be combined with ThresholdCombine.
+// peers is the list of identifiers of all the other active participants.
 func ThresholdEvaluate(
-	g group.Group,
-	peers []*group.Scalar,
-	share *TOPRFKeyShare,
-	blinded *group.Element,
+	g ecc.Group,
+	peers []uint16,
+	share *keys.KeyShare,
+	blinded *ecc.Element,
 ) *ThresholdEvaluation {
 	eval := &ThresholdEvaluation{
-		Identifier: share.Identifier,
-		Evaluated:  Evaluate(share.SecretKey, blinded),
+		Identifier: share.Identifier(),
+		Evaluated:  Evaluate(share.SecretKey(), blinded),
 	}
 
-	eval.Evaluated = delta(g, peers, eval)
+	peersScalars := secretsharing.NewPolynomialFromIntegers(g, peers)
+	eval.Evaluated = delta(g, peersScalars, eval)
 
 	return eval
 }
 
-// ThresholdCombine is used to combine evaluations produced by ThresholdEvaluate to produce the evaluated element to be
+// ThresholdCombine is used to combine evaluations produced by ThresholdEvaluate to return the evaluated element to be
 // consumed by the client. This can be done by a proxy or on the client before being provided to the Finalize function.
-func ThresholdCombine(evaluations []*ThresholdEvaluation) *group.Element {
+func ThresholdCombine(evaluations []*ThresholdEvaluation) *ecc.Element {
 	result := evaluations[0].Evaluated.Copy()
 
 	for _, ev := range evaluations[1:] {
@@ -73,14 +64,13 @@ func ThresholdCombine(evaluations []*ThresholdEvaluation) *group.Element {
 
 // ThresholdProxyCombine is used to combine evaluations if the basic Evaluate was used before using a key share in the
 // threshold setup. This requires no modification of the server's Evaluate call. Note that this concentrates some degree
-// of computation that could be offloaded to the threshold participants using ThresholdEvaluate instead of Evaluate,
-// and ThresholdCombine instead of ThresholdProxyCombine. This can be done by a proxy or on the client before being
-// provided to the Finalize function.
-func ThresholdProxyCombine(g group.Group, evaluations []*ThresholdEvaluation) *group.Element {
-	peers := make(secretsharing.Polynomial, len(evaluations))
-	for i, ev := range evaluations {
-		peers[i] = ev.Identifier
-	}
+// of computation that could be offloaded to the threshold participants if they use ThresholdEvaluate instead of
+// Evaluate, and ThresholdCombine instead of ThresholdProxyCombine.
+// This can be done by a proxy or on the client before being provided to the Finalize function.
+func ThresholdProxyCombine(g ecc.Group, evaluations []*ThresholdEvaluation) *ecc.Element {
+	peers := secretsharing.NewPolynomialFromListFunc(g, evaluations, func(e *ThresholdEvaluation) *ecc.Scalar {
+		return g.NewScalar().SetUInt64(uint64(e.Identifier))
+	})
 
 	result := g.NewElement()
 
