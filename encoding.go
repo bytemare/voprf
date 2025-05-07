@@ -6,9 +6,6 @@
 // LICENSE file in the root directory of this source tree or at
 // https://spdx.org/licenses/MIT.html
 
-// Package voprf implements RFC9497 and provides abstracted access to Oblivious Pseudorandom Functions (OPRF) and
-// Threshold Oblivious Pseudorandom Functions (TOPRF) using Elliptic Curve Prime Order Groups (EC-OPRF).
-// For VOPRF and POPRF use the github.com/bytemare/oprf/voprf package.
 package voprf
 
 import "github.com/bytemare/ecc"
