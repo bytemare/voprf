@@ -17,23 +17,24 @@ import (
 	"strings"
 	"testing"
 
-	group "github.com/bytemare/crypto"
+	"github.com/bytemare/ecc"
 	"github.com/bytemare/hash"
 
-	oprf "github.com/bytemare/voprf"
 	"github.com/bytemare/voprf/internal"
 	"github.com/bytemare/voprf/voprf"
+
+	oprf "github.com/bytemare/voprf"
 )
 
 type test struct {
-	ServerPrivateKey  *group.Scalar
-	ProofC            *group.Scalar
-	NonceR            *group.Scalar
-	ProofS            *group.Scalar
-	Blind             []*group.Scalar
-	BlindedElement    []*group.Element
+	ServerPrivateKey  *ecc.Scalar
+	ProofC            *ecc.Scalar
+	NonceR            *ecc.Scalar
+	ProofS            *ecc.Scalar
+	Blind             []*ecc.Scalar
+	BlindedElement    []*ecc.Element
 	Info              []byte
-	EvaluationElement []*group.Element
+	EvaluationElement []*ecc.Element
 	Input             [][]byte
 	Output            [][]byte
 	Batch             int
@@ -74,13 +75,13 @@ func decodeBatch(nb int, in string) ([][]byte, error) {
 	return out, nil
 }
 
-func decodeBatchScalar(g group.Group, nb int, in string) ([]*group.Scalar, error) {
+func decodeBatchScalar(g ecc.Group, nb int, in string) ([]*ecc.Scalar, error) {
 	b, err := decodeBatch(nb, in)
 	if err != nil {
 		return nil, err
 	}
 
-	res := make([]*group.Scalar, nb)
+	res := make([]*ecc.Scalar, nb)
 	for i, bi := range b {
 		res[i] = g.NewScalar()
 		if err := res[i].Decode(bi); err != nil {
@@ -91,13 +92,13 @@ func decodeBatchScalar(g group.Group, nb int, in string) ([]*group.Scalar, error
 	return res, nil
 }
 
-func decodeBatchElement(g group.Group, nb int, in string) ([]*group.Element, error) {
+func decodeBatchElement(g ecc.Group, nb int, in string) ([]*ecc.Element, error) {
 	b, err := decodeBatch(nb, in)
 	if err != nil {
 		return nil, err
 	}
 
-	res := make([]*group.Element, nb)
+	res := make([]*ecc.Element, nb)
 	for i, bi := range b {
 		res[i] = g.NewElement()
 		if err := res[i].Decode(bi); err != nil {
@@ -132,7 +133,7 @@ func decodeBatchElement(g group.Group, nb int, in string) ([]*group.Element, err
 //	return nil
 //}
 
-func decodeScalar(g group.Group, s string) (*group.Scalar, error) {
+func decodeScalar(g ecc.Group, s string) (*ecc.Scalar, error) {
 	ds, err := hex.DecodeString(s)
 	if err != nil {
 		return nil, fmt.Errorf(" ProofC decoding errored with %q", err)
@@ -170,7 +171,7 @@ func (tv *testVector) Decode() (*test, error) {
 		return nil, fmt.Errorf(" info decoding errored with %q", err)
 	}
 
-	var proofC, nonceR, proofS *group.Scalar
+	var proofC, nonceR, proofS *ecc.Scalar
 	if len(tv.EvaluationProof.Proof) != 0 {
 		pLen := len(tv.EvaluationProof.Proof)
 		c := tv.EvaluationProof.Proof[:pLen/2]
@@ -281,21 +282,21 @@ func (v vector) checkParams(t *testing.T) {
 }
 
 type Client interface {
-	Blind(input []byte) *group.Element
-	BlindBatch(inputs [][]byte) []*group.Element
-	SetBlind(blind ...*group.Scalar)
+	Blind(input []byte) *ecc.Element
+	BlindBatch(inputs [][]byte) []*ecc.Element
+	SetBlind(blind ...*ecc.Scalar)
 }
 
-func testBlind(t *testing.T, client Client, blind *group.Scalar, input []byte, expected *group.Element) {
+func testBlind(t *testing.T, client Client, blind *ecc.Scalar, input []byte, expected *ecc.Element) {
 	client.SetBlind(blind)
 	blinded := client.Blind(input)
 
-	if blinded.Equal(expected) != 1 {
+	if !blinded.Equal(expected) {
 		t.Fatal("unexpected blinded output")
 	}
 }
 
-func testBlindBatch(t *testing.T, client Client, blinds []*group.Scalar, inputs [][]byte, expected []*group.Element) {
+func testBlindBatch(t *testing.T, client Client, blinds []*ecc.Scalar, inputs [][]byte, expected []*ecc.Element) {
 	client.SetBlind(blinds...)
 
 	blinded := client.BlindBatch(inputs)
@@ -304,7 +305,7 @@ func testBlindBatch(t *testing.T, client Client, blinds []*group.Scalar, inputs 
 	}
 
 	for i, b := range expected {
-		if b.Equal(expected[i]) != 1 {
+		if !b.Equal(expected[i]) {
 			t.Fatalf("unexpected blinded output %d", i)
 		}
 	}
@@ -314,7 +315,7 @@ func testOPRFEvaluation(t *testing.T, test *test) {
 	if len(test.BlindedElement) > 1 {
 		ev := oprf.Evaluate(test.ServerPrivateKey, test.BlindedElement[0])
 
-		if test.EvaluationElement[0].Equal(ev) != 1 {
+		if !test.EvaluationElement[0].Equal(ev) {
 			t.Fatal("unexpected evaluation element")
 		}
 	} else {
@@ -325,7 +326,7 @@ func testOPRFEvaluation(t *testing.T, test *test) {
 		}
 
 		for i, e := range ev {
-			if test.EvaluationElement[i].Equal(e) != 1 {
+			if !test.EvaluationElement[i].Equal(e) {
 				t.Fatal("unexpected evaluation element")
 			}
 		}
@@ -358,7 +359,7 @@ func testVPOPRFEvaluation(t *testing.T, server *voprf.Server, test *test) {
 	if test.Batch == 1 {
 		evaluation = server.Evaluate(test.BlindedElement[0], test.NonceR)
 
-		if evaluation.Evaluations[0].Equal(test.EvaluationElement[0]) != 1 {
+		if !evaluation.Evaluations[0].Equal(test.EvaluationElement[0]) {
 			t.Fatalf(
 				"unexpected evaluation element:\n\twant: %v\n\tgot : %v\n",
 				hex.EncodeToString(test.EvaluationElement[0].Encode()),
@@ -369,24 +370,24 @@ func testVPOPRFEvaluation(t *testing.T, server *voprf.Server, test *test) {
 		evaluation = server.EvaluateBatch(test.BlindedElement, test.NonceR)
 
 		for i, e := range test.EvaluationElement {
-			if e.Equal(evaluation.Evaluations[i]) != 1 {
+			if !e.Equal(evaluation.Evaluations[i]) {
 				t.Fatal("unexpected evaluation elements")
 			}
 		}
 	}
 
-	if evaluation.Proof[0].Equal(test.ProofC) != 1 {
+	if !evaluation.Proof[0].Equal(test.ProofC) {
 		t.Fatal("unexpected proof c")
 	}
 
-	if evaluation.Proof[1].Equal(test.ProofS) != 1 {
+	if !evaluation.Proof[1].Equal(test.ProofS) {
 		t.Fatal("unexpected proof s")
 	}
 }
 
 func testVPOPRFFinalize(t *testing.T, client *voprf.Client, test *test) {
 	evaluation := &voprf.Evaluation{
-		Proof:       [2]*group.Scalar{test.ProofC, test.ProofS},
+		Proof:       [2]*ecc.Scalar{test.ProofC, test.ProofS},
 		Evaluations: test.EvaluationElement,
 	}
 
@@ -480,7 +481,11 @@ func (v vector) testVector(
 	) != string(
 		internal.Dst(hash2groupDSTPrefix, internal.ContextString(v.Mode, test.Ciphersuite.Name())),
 	) {
-		t.Fatal("GroupDST output is not valid.")
+		t.Fatalf(
+			"GroupDST output is not valid.\n\twant: %s\n\tgot : %s\n",
+			expectedDST,
+			internal.Dst(hash2groupDSTPrefix, internal.ContextString(v.Mode, test.Ciphersuite.Name())),
+		)
 	}
 
 	// Test DeriveKeyPair
@@ -499,7 +504,7 @@ func (v vector) testVector(
 		t.Fatalf("private key decoding errored with %q\nfor sksm %v\n", err, v.SkSm)
 	}
 
-	var sks *group.Scalar
+	var sks *ecc.Scalar
 
 	if v.Mode == internal.OPRF {
 		sks, _ = oprf.DeriveKeyPair(test.Ciphersuite, seed, keyInfo)

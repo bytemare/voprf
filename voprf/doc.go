@@ -8,5 +8,5 @@
 
 // Package voprf implements RFC9497 and provides abstracted access to Verifiable Oblivious Pseudorandom Functions
 // (VOPRF) and Partially Oblivious Pseudorandom Functions (POPRF) using Elliptic Curve Prime Order Groups (EC-OPRF).
-// For OPRF and TOPRF use the github.com/bytemare/oprf package.
+// For OPRF and TOPRF use the github.com/bytemare/voprf package.
 package voprf
