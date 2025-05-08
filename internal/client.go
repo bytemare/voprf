@@ -99,12 +99,12 @@ func (c *Client) Finalize(index int, evaluated *ecc.Element, info ...byte) []byt
 
 // FinalizeBatch unblinds the evaluated elements and returns the corresponding protocol outputs. The optional info
 // argument must only be provided when using the POPRF mode.
-func (c *Client) FinalizeBatch(evaluated []*ecc.Element, info ...byte) ([][]byte, error) {
+func (c *Client) FinalizeBatch(evaluated []*ecc.Element, info ...byte) [][]byte {
 	out := make([][]byte, len(evaluated))
 
 	for i, e := range evaluated {
 		out[i] = c.Finalize(i, e, info...)
 	}
 
-	return out, nil
+	return out
 }

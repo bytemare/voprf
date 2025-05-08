@@ -59,7 +59,7 @@ func (c Ciphersuite) Group() ecc.Group {
 
 // Name returns the [RFC9497](https://datatracker.ietf.org/doc/rfc9497) compliant identifier of the ciphersuite.
 func (c Ciphersuite) Name() string {
-	return internal.CiphersuiteIdentifier[ecc.Group(c)]
+	return internal.CiphersuiteIdentifier(ecc.Group(c))
 }
 
 // DeriveKeyPair returns a private-public key pair for the OPRF mode, given a secret seed and instance specific info.
@@ -86,7 +86,7 @@ type Client struct {
 // SetBlind sets one or multiple blinds in the client's blind register. This is optional, and useful if you want to
 // force usage of specific blinding scalar. If no blinding scalars are set, new, random blinds will be used.
 func (c *Client) SetBlind(blind ...*ecc.Scalar) {
-	c.Client.UpdateStateCapacity(len(blind))
+	c.UpdateStateCapacity(len(blind))
 
 	for i, b := range blind {
 		c.Client.SetBlind(i, b)
@@ -127,7 +127,7 @@ func (c *Client) FinalizeBatch(evaluated []*ecc.Element) ([][]byte, error) {
 		return nil, errBatchDifferentSize
 	}
 
-	return c.Client.FinalizeBatch(evaluated)
+	return c.Client.FinalizeBatch(evaluated), nil
 }
 
 // Evaluate is the server's function to evaluate a Client provided blinded element with the server's secret key.

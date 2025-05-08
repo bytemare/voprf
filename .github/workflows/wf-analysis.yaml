@@ -1,0 +1,72 @@
+name: Analysis
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Every 3 days at 7 a.m.
+    - cron: '0 7 */3 * *'
+
+permissions: {}
+
+jobs:
+  Lint:
+    permissions:
+      contents: read
+    uses: bytemare/workflows/.github/workflows/golangci-lint.yaml@7e57ebfab2912d1bae7266d80f2c3783fcadfd35
+    with:
+      config-path: ./.github/.golangci.yml
+      scope: ./...
+
+  CodeQL:
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: bytemare/workflows/.github/workflows/codeql.yaml@7e57ebfab2912d1bae7266d80f2c3783fcadfd35
+    with:
+      language: go
+
+  CodeScans:
+    permissions:
+      contents: read
+      # Needed to upload the results to code-scanning dashboard.
+      security-events: write
+    uses: bytemare/workflows/.github/workflows/scan-go.yaml@7e57ebfab2912d1bae7266d80f2c3783fcadfd35
+    with:
+      sonar-configuration: .github/sonar-project.properties
+    secrets:
+      github: ${{ secrets.GITHUB_TOKEN }}
+      sonar: ${{ secrets.SONAR_TOKEN }}
+      codecov: ${{ secrets.CODECOV_TOKEN }}
+      semgrep: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+  Scorecard:
+    permissions:
+      # Needed to upload the results to code-scanning dashboard.
+      security-events: write
+      # Needed for GitHub OIDC token if publish_results is true.
+      id-token: write
+      # Needed for nested workflow
+      actions: read
+      # To detect SAST tools
+      checks: read
+      attestations: read
+      contents: read
+      deployments: read
+      issues: read
+      discussions: read
+      packages: read
+      pages: read
+      pull-requests: read
+      repository-projects: read
+      statuses: read
+      models: read
+
+    uses: bytemare/workflows/.github/workflows/scorecard.yaml@7e57ebfab2912d1bae7266d80f2c3783fcadfd35
+    secrets:
+      token: ${{ secrets.SCORECARD_TOKEN }}

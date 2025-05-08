@@ -29,8 +29,6 @@ const (
 
 	// POPRF identifies the partially-oblivious mode.
 	POPRF
-
-	// TOPRF identifies te
 )
 
 const (
@@ -47,16 +45,6 @@ const (
 )
 
 var (
-	// CiphersuiteIdentifier maps a group to its [RFC9497](https://datatracker.ietf.org/doc/rfc9497) compliant
-	// identifier.
-	CiphersuiteIdentifier = map[ecc.Group]string{
-		ecc.Ristretto255Sha512: "ristretto255-SHA512",
-		ecc.P256Sha256:         "P256-SHA256",
-		ecc.P384Sha384:         "P384-SHA384",
-		ecc.P521Sha512:         "P521-SHA512",
-		ecc.Secp256k1Sha256:    "secp256k1-SHA256",
-	}
-
 	errInvalidInput = errors.New(
 		"invalid input - OPRF input deterministically maps to the group identity element",
 	)
@@ -67,6 +55,18 @@ var (
 		"invalid input - POPRF public key tweaking yields the group identity element",
 	)
 )
+
+// CiphersuiteIdentifier maps a group to its [RFC9497](https://datatracker.ietf.org/doc/rfc9497) compliant
+// identifier.
+func CiphersuiteIdentifier(g ecc.Group) string {
+	return map[ecc.Group]string{
+		ecc.Ristretto255Sha512: "ristretto255-SHA512",
+		ecc.P256Sha256:         "P256-SHA256",
+		ecc.P384Sha384:         "P384-SHA384",
+		ecc.P521Sha512:         "P521-SHA512",
+		ecc.Secp256k1Sha256:    "secp256k1-SHA256",
+	}[g]
+}
 
 // A Core holds the cryptographic configuration and methods used for xOPRF operations.
 type Core struct {
@@ -83,7 +83,7 @@ func ContextString(mode Mode, name string) []byte {
 }
 
 func makeCore(g ecc.Group, h hash.Hash, mode Mode) *Core {
-	ctx := ContextString(mode, CiphersuiteIdentifier[g])
+	ctx := ContextString(mode, CiphersuiteIdentifier(g))
 
 	return &Core{
 		Group:     g,
@@ -115,15 +115,17 @@ func LoadConfiguration(g ecc.Group, mode Mode) *Core {
 
 // DeriveKeyPair derives a private-public key pair given a secret seed and instance specific info.
 func (c Core) DeriveKeyPair(seed, info []byte) (*ecc.Scalar, *ecc.Element) {
-	dst := concatenate([]byte(deriveKeyPairDST), ContextString(c.Mode, CiphersuiteIdentifier[c.Group]))
+	dst := concatenate([]byte(deriveKeyPairDST), ContextString(c.Mode, CiphersuiteIdentifier(c.Group)))
 	deriveInput := concatenate(seed, lengthPrefixEncode(info))
 
-	var counter uint8
-	var sk *ecc.Scalar
+	var (
+		counter uint8 // 256 tries at maximum
+		sk      *ecc.Scalar
+	)
 
 	for sk == nil || sk.IsZero() {
-		if counter > 255 {
-			panic("impossible to generate non-zero scalar")
+		if counter == 255 {
+			panic("failed to generate non-zero scalar 256 times")
 		}
 
 		sk = c.Group.HashToScalar(concatenate(deriveInput, []byte{counter}), dst)

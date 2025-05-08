@@ -8,14 +8,18 @@
 
 package voprf
 
-import "github.com/bytemare/ecc"
+import (
+	"fmt"
+
+	"github.com/bytemare/ecc"
+)
 
 // DecodeElement decodes e to an element in the group.
 func (c Ciphersuite) DecodeElement(e []byte) (*ecc.Element, error) {
 	result := ecc.Group(c).NewElement()
 
 	if err := result.Decode(e); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error: %w", err)
 	}
 
 	return result, nil
@@ -26,7 +30,7 @@ func (c Ciphersuite) DecodeScalar(s []byte) (*ecc.Scalar, error) {
 	result := ecc.Group(c).NewScalar()
 
 	if err := result.Decode(s); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error: %w", err)
 	}
 
 	return result, nil

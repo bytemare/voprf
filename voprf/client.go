@@ -26,6 +26,7 @@ var (
 	errInputProofCZero  = errors.New("proof c is zero")
 	errInputProofSNil   = errors.New("proof s is nil")
 	errInputProofSZero  = errors.New("proof s is zero")
+	errInvalidProof     = errors.New("invalid proof")
 )
 
 // Client is used for VOPRF or POPRF client executions. For OPRF or TOPRF, used oprf.Client.
@@ -92,9 +93,39 @@ func (c *Client) BlindBatch(inputs [][]byte) []*ecc.Element {
 	return c.blindedInput
 }
 
-func (c *Client) verifyProof(evaluation *Evaluation) error {
-	var pk *ecc.Element
-	var cs, ds []*ecc.Element
+// Finalize verifies the Server provided proofs, and, if they are valid, unblinds the evaluated element and returns
+// the protocol output.
+func (c *Client) Finalize(evaluation *Evaluation) ([]byte, error) {
+	if err := c.checkEvaluation(evaluation); err != nil {
+		return nil, err
+	}
+
+	if !c.verifyProof(evaluation) {
+		return nil, errInvalidProof
+	}
+
+	return c.oprf.Client.Finalize(0, evaluation.Evaluations[0], c.verifiable.POPRFInfo...), nil
+}
+
+// FinalizeBatch verifies the Server provided proofs, and, if they are valid, unblinds the evaluated elements and
+// returns the protocol output.
+func (c *Client) FinalizeBatch(evaluation *Evaluation) ([][]byte, error) {
+	if err := c.checkEvaluation(evaluation); err != nil {
+		return nil, err
+	}
+
+	if !c.verifyProof(evaluation) {
+		return nil, errInvalidProof
+	}
+
+	return c.oprf.Client.FinalizeBatch(evaluation.Evaluations, c.verifiable.POPRFInfo...), nil
+}
+
+func (c *Client) verifyProof(evaluation *Evaluation) bool {
+	var (
+		pk     *ecc.Element
+		cs, ds []*ecc.Element
+	)
 
 	if c.oprf.Mode == internal.VOPRF {
 		cs, ds = c.blindedInput, evaluation.Evaluations
@@ -127,32 +158,4 @@ func (c *Client) checkEvaluation(evaluation *Evaluation) error {
 	default:
 		return nil
 	}
-}
-
-// Finalize verifies the Server provided proofs, and, if they are valid, unblinds the evaluated element and returns
-// the protocol output.
-func (c *Client) Finalize(evaluation *Evaluation) ([]byte, error) {
-	if err := c.checkEvaluation(evaluation); err != nil {
-		return nil, err
-	}
-
-	if err := c.verifyProof(evaluation); err != nil {
-		return nil, err
-	}
-
-	return c.oprf.Client.Finalize(0, evaluation.Evaluations[0], c.verifiable.POPRFInfo...), nil
-}
-
-// FinalizeBatch verifies the Server provided proofs, and, if they are valid, unblinds the evaluated elements and
-// returns the protocol output.
-func (c *Client) FinalizeBatch(evaluation *Evaluation) ([][]byte, error) {
-	if err := c.checkEvaluation(evaluation); err != nil {
-		return nil, err
-	}
-
-	if err := c.verifyProof(evaluation); err != nil {
-		return nil, err
-	}
-
-	return c.oprf.Client.FinalizeBatch(evaluation.Evaluations, c.verifiable.POPRFInfo...)
 }

@@ -11,8 +11,14 @@ package internal
 import (
 	"crypto/subtle"
 	"encoding/binary"
+	"errors"
 
 	"github.com/bytemare/ecc"
+)
+
+var (
+	errInputNegative = errors.New("negative input")
+	errInputLarge    = errors.New("input is too high for length")
 )
 
 // KeyPair assembles a VOPRF key pair. The SecretKey can be used as the evaluation key for
@@ -25,10 +31,17 @@ type KeyPair struct {
 
 // I2osp2 encodes the integer to a 2-byte byte string.
 func I2osp2(value int) []byte {
-	out := make([]byte, 2)
-	binary.BigEndian.PutUint16(out, uint16(value))
+	switch v := value; {
+	case v < 0:
+		panic(errInputNegative)
+	case v >= 1<<(8*2):
+		panic(errInputLarge)
+	default:
+		out := make([]byte, 2)
+		binary.BigEndian.PutUint16(out, uint16(value)) //nolint:gosec // overflow is checked beforehand.
 
-	return out
+		return out
+	}
 }
 
 func lengthPrefixEncode(input []byte) []byte {

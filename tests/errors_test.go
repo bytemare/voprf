@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -297,7 +298,7 @@ func pTag(g ecc.Group, info []byte) *ecc.Scalar {
 	framedInfo := make([]byte, 0, len("Info")+2+len(info))
 	framedInfo = append(framedInfo, "Info"...)
 	framedInfo = append(framedInfo, append(internal.I2osp2(len(info)), info...)...)
-	ctx := internal.ContextString(internal.POPRF, internal.CiphersuiteIdentifier[g])
+	ctx := internal.ContextString(internal.POPRF, internal.CiphersuiteIdentifier(g))
 	dst := internal.Dst("HashToScalar-", ctx)
 	return g.HashToScalar(framedInfo, dst)
 }
@@ -428,6 +429,7 @@ func Test_Serde_Evaluation_UnmarshalJSON(t *testing.T) {
 	errC := "invalid c proof encoding:"
 	errS := "invalid s proof encoding:"
 	errE := "invalid evaluation encoding - element 0:"
+	errDecodeNoCiphersuite := errors.New("decoding error: ciphersuite not set")
 	jsonFMT := "{\"p\":[\"%s\",\"%s\"],\"e\":[\"%s\"]}"
 	testAll(t, func(c *configuration) {
 		goodC := base64.StdEncoding.EncodeToString(c.group.NewScalar().Random().Encode())
@@ -437,6 +439,13 @@ func Test_Serde_Evaluation_UnmarshalJSON(t *testing.T) {
 		goodE := base64.StdEncoding.EncodeToString(c.group.Base().Encode())
 		badE := base64.StdEncoding.EncodeToString(getBadElement(t, c))
 		eval := new(voprf.Evaluation)
+
+		// missing ciphersuite
+		if err := eval.UnmarshalJSON(nil); err == nil ||
+			!strings.HasPrefix(err.Error(), errDecodeNoCiphersuite.Error()) {
+			t.Errorf("expected error starts with %q, got %q", "yo", err)
+		}
+
 		eval.SetCiphersuite(c.ciphersuite)
 
 		// bad JSON
@@ -585,4 +594,22 @@ func copyTEvals(te []*oprf.ThresholdEvaluation) []*oprf.ThresholdEvaluation {
 	}
 
 	return cpy
+}
+
+func Test_I2OSP_Panic(t *testing.T) {
+	// Negative value
+	expectedError := errors.New("negative input")
+	if hasPanic, err := expectPanic(expectedError, func() {
+		_ = internal.I2osp2(-1)
+	}); !hasPanic {
+		t.Fatalf("expected panic with negative value: %v", err)
+	}
+
+	// Value too big
+	expectedError = errors.New("input is too high for length")
+	if hasPanic, err := expectPanic(expectedError, func() {
+		_ = internal.I2osp2(math.MaxUint16 + 1)
+	}); !hasPanic {
+		t.Fatalf("expected panic with negative value: %v", err)
+	}
 }
