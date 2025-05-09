@@ -1,6 +1,6 @@
 # (V)OPRF : (Verifiable) Oblivious Pseudorandom Functions
 
-[![VOPRF](https://github.com/bytemare/voprf/actions/workflows/wf-analysis.yaml)](https://github.com/bytemare/voprf/actions/workflows/wf-analysis.yaml)
+[![VOPRF](https://github.com/bytemare/voprf/actions/workflows/wf-analysis.yaml/badge.svg)](https://github.com/bytemare/voprf/actions/workflows/wf-analysis.yaml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/bytemare/voprf.svg)](https://pkg.go.dev/github.com/bytemare/voprf)
 [![codecov](https://codecov.io/gh/bytemare/voprf/branch/main/graph/badge.svg?token=5bQfB0OctA)](https://codecov.io/gh/bytemare/voprf)
 
